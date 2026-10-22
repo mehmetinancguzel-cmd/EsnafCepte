@@ -22,12 +22,14 @@ import {
   Zap,
   Globe,
   User as UserIcon,
+  Truck,
 } from 'lucide-react';
 import PosView from '@/components/PosView';
 import AuditView from '@/components/AuditView';
 import ProductsView from '@/components/ProductsView';
 import BarcodeLabelPrinter from '@/components/BarcodeLabelPrinter';
 import CustomersView, { Customer } from '@/components/CustomersView';
+import SuppliersView from '@/components/SuppliersView';
 import MovementsView from '@/components/MovementsView';
 import ReportsView from '@/components/ReportsView';
 import LandingView from '@/components/LandingView';
@@ -47,7 +49,7 @@ interface StoreItem {
 }
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'POS' | 'AUDIT' | 'PRODUCTS' | 'LABELS' | 'CUSTOMERS' | 'MOVEMENTS' | 'REPORTS'>('POS');
+  const [activeTab, setActiveTab] = useState<'POS' | 'AUDIT' | 'PRODUCTS' | 'LABELS' | 'CUSTOMERS' | 'SUPPLIERS' | 'MOVEMENTS' | 'REPORTS'>('POS');
   const [time, setTime] = useState<string>('');
   const [selectedCustomerForSale, setSelectedCustomerForSale] = useState<Customer | null>(null);
 
@@ -477,6 +479,7 @@ export default function Home() {
             }}
           />
         )}
+        {activeTab === 'SUPPLIERS' && <SuppliersView storeId={activeStore?.id || 1} />}
         {activeTab === 'MOVEMENTS' && <MovementsView storeId={activeStore?.id || 1} />}
         {activeTab === 'REPORTS' && (
           <ReportsView
@@ -488,7 +491,7 @@ export default function Home() {
 
       {/* Bottom Sticky Dock Navigation: Clean, Floating & Mobile Friendly */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 shadow-2xl py-2 px-2 sm:px-6">
-        <div className="max-w-4xl mx-auto flex items-center justify-around gap-1 sm:gap-2">
+        <div className="max-w-5xl mx-auto flex items-center justify-around gap-1 sm:gap-2">
           
           {/* 1. Hızlı Satış (Kasa) */}
           <button
@@ -539,7 +542,7 @@ export default function Home() {
             }`}
           >
             <Tag className="w-5 h-5 mb-1" />
-            <span className="text-[11px] font-bold tracking-tight">Raf Etiketi</span>
+            <span className="text-[11px] font-bold tracking-tight">Etiket</span>
           </button>
 
           {/* 5. Müşteriler & Veresiye */}
@@ -555,7 +558,20 @@ export default function Home() {
             <span className="text-[11px] font-bold tracking-tight">Veresiye</span>
           </button>
 
-          {/* 6. Stok Hareketleri */}
+          {/* 6. Toptancılar & Alış Faturaları */}
+          <button
+            onClick={() => setActiveTab('SUPPLIERS')}
+            className={`flex-1 flex flex-col items-center py-1.5 px-1 sm:px-2 rounded-2xl transition-all duration-200 ${
+              activeTab === 'SUPPLIERS'
+                ? 'bg-gradient-to-t from-emerald-600 to-teal-500 text-white shadow-lg shadow-emerald-500/25 scale-105'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <Truck className="w-5 h-5 mb-1" />
+            <span className="text-[11px] font-bold tracking-tight">Toptancı</span>
+          </button>
+
+          {/* 7. Stok Hareketleri */}
           <button
             onClick={() => setActiveTab('MOVEMENTS')}
             className={`flex-1 flex flex-col items-center py-1.5 px-1 sm:px-2 rounded-2xl transition-all duration-200 ${
@@ -565,10 +581,10 @@ export default function Home() {
             }`}
           >
             <ArrowLeftRight className="w-5 h-5 mb-1" />
-            <span className="text-[11px] font-bold tracking-tight">Hareketler</span>
+            <span className="text-[11px] font-bold tracking-tight">Hareket</span>
           </button>
 
-          {/* 7. Raporlar */}
+          {/* 8. Raporlar */}
           <button
             onClick={() => setActiveTab('REPORTS')}
             className={`flex-1 flex flex-col items-center py-1.5 px-1 sm:px-2 rounded-2xl transition-all duration-200 ${

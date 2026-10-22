@@ -15,12 +15,23 @@ export async function POST(request: NextRequest) {
 
     const result = authenticateUser(email, password);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: 'Giriş başarılı!',
       user: result.user,
       store: result.store,
+      token: result.token,
     });
+
+    response.cookies.set('esnafcepte_token', result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 72 * 3600, // 3 days
+    });
+
+    return response;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Giriş yapılamadı.';
     return NextResponse.json({ error: message }, { status: 401 });

@@ -1,8 +1,59 @@
 import fs from 'fs';
 import path from 'path';
+import { hashPassword, verifyPassword, generateSessionToken } from './auth';
 
 export type StoreSector = 'KIRTASIYE_TUHAFIYE' | 'MARKET' | 'BUTIK_GIYIM' | 'HIRDAVAT' | 'DIGER';
 export type UserPlan = 'TRIAL' | 'STARTER' | 'GROWTH' | 'ENTERPRISE';
+
+export interface Supplier {
+  id: number;
+  store_id: number;
+  name: string;
+  company_name?: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  tax_id?: string;
+  tax_office?: string;
+  balance: number; // Toptancıya olan borcumuz (TL)
+  created_at: string;
+}
+
+export interface PurchaseInvoiceItem {
+  barcode: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  unit_cost: number;
+  total_cost: number;
+}
+
+export interface PurchaseInvoice {
+  id: number;
+  store_id: number;
+  supplier_id: number;
+  supplier_name: string;
+  invoice_no: string;
+  invoice_date: string;
+  due_date?: string;
+  total_amount: number;
+  paid_amount: number;
+  payment_status: 'ODENDI' | 'KISMI' | 'ACIK_HESAP';
+  items: PurchaseInvoiceItem[];
+  note?: string;
+  created_at: string;
+}
+
+export interface SupplierTransaction {
+  id: number;
+  store_id: number;
+  supplier_id: number;
+  type: 'FATURA_ALIS' | 'ODEME';
+  amount: number;
+  payment_method?: 'NAKIT' | 'HAVALE_EFT' | 'KREDI_KARTI' | 'CEK';
+  note?: string;
+  created_at: string;
+}
 
 export interface Store {
   id: number;
@@ -148,6 +199,9 @@ interface DatabaseSchema {
   customers: Customer[];
   customer_transactions: CustomerTransaction[];
   expenses: Expense[];
+  suppliers: Supplier[];
+  purchase_invoices: PurchaseInvoice[];
+  supplier_transactions: SupplierTransaction[];
   nextId: {
     store: number;
     user: number;
@@ -159,6 +213,9 @@ interface DatabaseSchema {
     customer: number;
     customerTransaction: number;
     expense: number;
+    supplier: number;
+    purchaseInvoice: number;
+    supplierTransaction: number;
   };
 }
 
@@ -222,6 +279,36 @@ function getInitialData(): DatabaseSchema {
     customers: [],
     customer_transactions: [],
     expenses: [],
+    suppliers: [
+      {
+        id: 1,
+        store_id: 1,
+        name: 'Mega Toptan Gıda & Kırtasiye A.Ş.',
+        company_name: 'Mega Toptan Dağıtım Pazarlama Ltd.',
+        phone: '0212 555 10 20',
+        email: 'siparis@megatoptan.com',
+        address: 'İstoç Toptancılar Çarşısı 12. Ada No:45 Bağcılar / İstanbul',
+        tax_id: '6140589123',
+        tax_office: 'İkitelli',
+        balance: 1850,
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 2,
+        store_id: 1,
+        name: 'İpek Tuhafiye & Tekstil Toptan',
+        company_name: 'İpek İplik San. Tic.',
+        phone: '0212 666 30 40',
+        email: 'info@ipektuhafiye.com',
+        address: 'Tahtakale Cad. No:28 Eminönü / İstanbul',
+        tax_id: '4780129876',
+        tax_office: 'Hocapaşa',
+        balance: 0,
+        created_at: new Date().toISOString(),
+      },
+    ],
+    purchase_invoices: [],
+    supplier_transactions: [],
     nextId: {
       store: 4,
       user: 2,
@@ -233,6 +320,9 @@ function getInitialData(): DatabaseSchema {
       customer: 1,
       customerTransaction: 1,
       expense: 1,
+      supplier: 3,
+      purchaseInvoice: 1,
+      supplierTransaction: 1,
     },
   };
 }
@@ -287,9 +377,45 @@ export function loadDb(): DatabaseSchema {
     if (!parsed.customers) parsed.customers = [];
     if (!parsed.customer_transactions) parsed.customer_transactions = [];
     if (!parsed.expenses) parsed.expenses = [];
+    if (!parsed.suppliers) {
+      parsed.suppliers = [
+        {
+          id: 1,
+          store_id: 1,
+          name: 'Mega Toptan Gıda & Kırtasiye A.Ş.',
+          company_name: 'Mega Toptan Dağıtım Pazarlama Ltd.',
+          phone: '0212 555 10 20',
+          email: 'siparis@megatoptan.com',
+          address: 'İstoç Toptancılar Çarşısı 12. Ada No:45 Bağcılar / İstanbul',
+          tax_id: '6140589123',
+          tax_office: 'İkitelli',
+          balance: 1850,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: 2,
+          store_id: 1,
+          name: 'İpek Tuhafiye & Tekstil Toptan',
+          company_name: 'İpek İplik San. Tic.',
+          phone: '0212 666 30 40',
+          email: 'info@ipektuhafiye.com',
+          address: 'Tahtakale Cad. No:28 Eminönü / İstanbul',
+          tax_id: '4780129876',
+          tax_office: 'Hocapaşa',
+          balance: 0,
+          created_at: new Date().toISOString(),
+        },
+      ];
+      mutated = true;
+    }
+    if (!parsed.purchase_invoices) parsed.purchase_invoices = [];
+    if (!parsed.supplier_transactions) parsed.supplier_transactions = [];
     if (!parsed.nextId.customer) parsed.nextId.customer = 1;
     if (!parsed.nextId.customerTransaction) parsed.nextId.customerTransaction = 1;
     if (!parsed.nextId.expense) parsed.nextId.expense = 1;
+    if (!parsed.nextId.supplier) parsed.nextId.supplier = 3;
+    if (!parsed.nextId.purchaseInvoice) parsed.nextId.purchaseInvoice = 1;
+    if (!parsed.nextId.supplierTransaction) parsed.nextId.supplierTransaction = 1;
 
     // Assign store_id: 1 to any legacy records missing store_id
     for (const p of parsed.products) {
@@ -489,7 +615,7 @@ export function registerStoreAndUser(params: {
   sector: StoreSector;
   address?: string;
   seedTemplate?: boolean;
-}): { user: Omit<User, 'password_hash'>; store: Store } {
+}): { user: Omit<User, 'password_hash'>; store: Store; token: string } {
   const db = loadDb();
   const normalizedEmail = params.email.trim().toLowerCase();
 
@@ -511,14 +637,14 @@ export function registerStoreAndUser(params: {
   const now = new Date();
   const trialEnds = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
-  // 3. Kullanıcıyı Kaydet
+  // 3. Kullanıcıyı Kaydet (Şifreyi Güvenli Tuzlayarak Hash'le)
   const newUser: User = {
     id: db.nextId.user++,
     store_id: store.id,
     name: params.userName.trim(),
     email: normalizedEmail,
     phone: params.phone.trim(),
-    password_hash: params.password,
+    password_hash: hashPassword(params.password),
     plan: 'TRIAL',
     trial_ends_at: trialEnds,
     created_at: now.toISOString(),
@@ -528,21 +654,43 @@ export function registerStoreAndUser(params: {
   saveDb(db);
 
   const { password_hash, ...safeUser } = newUser;
-  return { user: safeUser, store };
+  const token = generateSessionToken({
+    userId: safeUser.id,
+    storeId: safeUser.store_id,
+    role: 'PATRON',
+    email: safeUser.email,
+    name: safeUser.name,
+  });
+
+  return { user: safeUser, store, token };
 }
 
-export function authenticateUser(email: string, password: string): { user: Omit<User, 'password_hash'>; store: Store } {
+export function authenticateUser(email: string, password: string): { user: Omit<User, 'password_hash'>; store: Store; token: string } {
   const db = loadDb();
   const normalizedEmail = email.trim().toLowerCase();
   const user = db.users.find(u => u.email.toLowerCase() === normalizedEmail);
 
-  if (!user || user.password_hash !== password) {
+  if (!user || !verifyPassword(password, user.password_hash)) {
     throw new Error('E-posta veya şifre hatalı. Lütfen kontrol ediniz.');
+  }
+
+  // Auto-upgrade legacy plain text password to secure hash
+  if (!user.password_hash.includes(':')) {
+    user.password_hash = hashPassword(password);
+    saveDb(db);
   }
 
   const store = db.stores.find(s => s.id === user.store_id) || db.stores[0];
   const { password_hash, ...safeUser } = user;
-  return { user: safeUser, store };
+  const token = generateSessionToken({
+    userId: safeUser.id,
+    storeId: safeUser.store_id,
+    role: 'PATRON',
+    email: safeUser.email,
+    name: safeUser.name,
+  });
+
+  return { user: safeUser, store, token };
 }
 
 export function getUserById(id: number): { user: Omit<User, 'password_hash'>; store: Store } | null {
@@ -1427,3 +1575,273 @@ _EsnafCepte • İnanoraSoft ile otomatik oluşturuldu._`;
     whatsappSummaryText,
   };
 }
+
+// ================= SUPPLIER & PURCHASE INVOICE METHODS (ADIM 4) =================
+
+export function getSuppliers(storeId?: number): Supplier[] {
+  const db = loadDb();
+  if (storeId) {
+    return db.suppliers.filter(s => s.store_id === storeId);
+  }
+  return db.suppliers;
+}
+
+export function getSupplierById(id: number, storeId?: number): Supplier | undefined {
+  const db = loadDb();
+  if (storeId) {
+    return db.suppliers.find(s => s.id === id && s.store_id === storeId);
+  }
+  return db.suppliers.find(s => s.id === id);
+}
+
+export function addSupplier(data: Omit<Supplier, 'id' | 'created_at' | 'balance'> & { store_id?: number; initial_balance?: number }): Supplier {
+  const db = loadDb();
+  const now = new Date().toISOString();
+  const targetStoreId = data.store_id || 1;
+
+  const newSupplier: Supplier = {
+    id: db.nextId.supplier++,
+    store_id: targetStoreId,
+    name: data.name.trim(),
+    company_name: data.company_name?.trim() || '',
+    phone: data.phone.trim(),
+    email: data.email?.trim() || '',
+    address: data.address?.trim() || '',
+    tax_id: data.tax_id?.trim() || '',
+    tax_office: data.tax_office?.trim() || '',
+    balance: Number(data.initial_balance || 0),
+    created_at: now,
+  };
+
+  db.suppliers.push(newSupplier);
+  saveDb(db);
+  return newSupplier;
+}
+
+export function updateSupplier(id: number, data: Partial<Supplier>, storeId?: number): Supplier | null {
+  const db = loadDb();
+  const index = db.suppliers.findIndex(s => s.id === id && (!storeId || s.store_id === storeId));
+  if (index === -1) return null;
+
+  db.suppliers[index] = {
+    ...db.suppliers[index],
+    ...data,
+  };
+
+  saveDb(db);
+  return db.suppliers[index];
+}
+
+export function deleteSupplier(id: number, storeId?: number): boolean {
+  const db = loadDb();
+  const index = db.suppliers.findIndex(s => s.id === id && (!storeId || s.store_id === storeId));
+  if (index === -1) return false;
+
+  db.suppliers.splice(index, 1);
+  saveDb(db);
+  return true;
+}
+
+export function getPurchaseInvoices(storeId?: number): PurchaseInvoice[] {
+  const db = loadDb();
+  if (storeId) {
+    return db.purchase_invoices.filter(pi => pi.store_id === storeId).reverse();
+  }
+  return db.purchase_invoices.slice().reverse();
+}
+
+export function createPurchaseInvoice(params: {
+  storeId: number;
+  supplierId: number;
+  invoiceNo: string;
+  invoiceDate: string;
+  dueDate?: string;
+  items: PurchaseInvoiceItem[];
+  paidAmount?: number;
+  paymentMethod?: 'NAKIT' | 'HAVALE_EFT' | 'KREDI_KARTI' | 'CEK';
+  note?: string;
+}): PurchaseInvoice {
+  const db = loadDb();
+  const now = new Date().toISOString();
+  const storeId = params.storeId || 1;
+
+  const supplier = db.suppliers.find(s => s.id === params.supplierId && s.store_id === storeId);
+  if (!supplier) throw new Error('Seçilen toptancı bulunamadı');
+
+  let totalAmount = 0;
+  for (const item of params.items) {
+    totalAmount += item.total_cost;
+  }
+
+  const paidAmount = Math.max(0, Number(params.paidAmount || 0));
+  const remainingDebt = Math.max(0, totalAmount - paidAmount);
+
+  let paymentStatus: PurchaseInvoice['payment_status'] = 'ACIK_HESAP';
+  if (paidAmount >= totalAmount) {
+    paymentStatus = 'ODENDI';
+  } else if (paidAmount > 0) {
+    paymentStatus = 'KISMI';
+  }
+
+  // 1. Faturayı Kaydet
+  const newInvoice: PurchaseInvoice = {
+    id: db.nextId.purchaseInvoice++,
+    store_id: storeId,
+    supplier_id: supplier.id,
+    supplier_name: supplier.name,
+    invoice_no: params.invoiceNo.trim(),
+    invoice_date: params.invoiceDate || now.split('T')[0],
+    due_date: params.dueDate,
+    total_amount: totalAmount,
+    paid_amount: paidAmount,
+    payment_status: paymentStatus,
+    items: params.items,
+    note: params.note?.trim(),
+    created_at: now,
+  };
+  db.purchase_invoices.push(newInvoice);
+
+  // 2. Toptancı Bakiyesini Güncelle (Kalan Borç)
+  if (remainingDebt > 0) {
+    supplier.balance = (supplier.balance || 0) + remainingDebt;
+  }
+
+  // 3. Toptancıya İşlem Kaydı Gir
+  db.supplier_transactions.push({
+    id: db.nextId.supplierTransaction++,
+    store_id: storeId,
+    supplier_id: supplier.id,
+    type: 'FATURA_ALIS',
+    amount: totalAmount,
+    note: `Fatura #${newInvoice.invoice_no} (${newInvoice.items.length} Kalem Mal Kabul)`,
+    created_at: now,
+  });
+
+  if (paidAmount > 0) {
+    db.supplier_transactions.push({
+      id: db.nextId.supplierTransaction++,
+      store_id: storeId,
+      supplier_id: supplier.id,
+      type: 'ODEME',
+      amount: paidAmount,
+      payment_method: params.paymentMethod || 'NAKIT',
+      note: `Fatura Peşinat / Ödeme (#${newInvoice.invoice_no})`,
+      created_at: now,
+    });
+
+    // Kasa Masraflarına Ekle (Eğer nakit ise)
+    if (params.paymentMethod === 'NAKIT' || !params.paymentMethod) {
+      db.expenses.push({
+        id: db.nextId.expense++,
+        store_id: storeId,
+        title: `Toptancı Ödemesi: ${supplier.name}`,
+        category: 'TOPTANCI',
+        amount: paidAmount,
+        note: `Fatura #${newInvoice.invoice_no} ödemesi`,
+        created_at: now,
+      });
+    }
+  }
+
+  // 4. Kalemlerdeki Ürünlerin Stoğunu Artır & Maliyet Fiyatını Güncelle
+  for (const item of params.items) {
+    const trimmedBarcode = item.barcode.trim();
+    let product = db.products.find(p => p.store_id === storeId && p.barcode === trimmedBarcode);
+
+    if (product) {
+      product.stock_quantity += item.quantity;
+      product.cost_price = item.unit_cost; // Yeni son alış maliyeti
+      product.updated_at = now;
+    } else {
+      // Ürün yoksa otomatik yeni ürün olarak kataloğa ekle
+      product = {
+        id: db.nextId.product++,
+        store_id: storeId,
+        barcode: trimmedBarcode,
+        name: item.name.trim(),
+        category: 'Genel',
+        cost_price: item.unit_cost,
+        sale_price: Math.round(item.unit_cost * 1.35), // Varsayılan %35 kâr marjı
+        stock_quantity: item.quantity,
+        critical_level: 5,
+        unit: item.unit || 'Adet',
+        created_at: now,
+        updated_at: now,
+      };
+      db.products.push(product);
+    }
+
+    // Stok Hareketi Kaydet
+    db.stock_movements.push({
+      id: db.nextId.movement++,
+      store_id: storeId,
+      product_id: product.id,
+      product_name: product.name,
+      barcode: product.barcode,
+      type: 'GIRIS',
+      quantity: item.quantity,
+      note: `Fatura Alış: ${supplier.name} (#${newInvoice.invoice_no})`,
+      created_at: now,
+    });
+  }
+
+  saveDb(db);
+  return newInvoice;
+}
+
+export function recordSupplierPayment(params: {
+  storeId: number;
+  supplierId: number;
+  amount: number;
+  paymentMethod?: 'NAKIT' | 'HAVALE_EFT' | 'KREDI_KARTI' | 'CEK';
+  note?: string;
+}): SupplierTransaction {
+  const db = loadDb();
+  const now = new Date().toISOString();
+  const storeId = params.storeId || 1;
+
+  const supplier = db.suppliers.find(s => s.id === params.supplierId && s.store_id === storeId);
+  if (!supplier) throw new Error('Toptancı bulunamadı');
+
+  const amount = Number(params.amount);
+  if (amount <= 0) throw new Error('Geçerli bir tutar giriniz');
+
+  supplier.balance = Math.max(0, (supplier.balance || 0) - amount);
+
+  const tx: SupplierTransaction = {
+    id: db.nextId.supplierTransaction++,
+    store_id: storeId,
+    supplier_id: supplier.id,
+    type: 'ODEME',
+    amount,
+    payment_method: params.paymentMethod || 'NAKIT',
+    note: params.note || 'Toptancı Borç Ödemesi',
+    created_at: now,
+  };
+  db.supplier_transactions.push(tx);
+
+  // Kasa nakit gideri kaydet
+  if (params.paymentMethod === 'NAKIT' || !params.paymentMethod) {
+    db.expenses.push({
+      id: db.nextId.expense++,
+      store_id: storeId,
+      title: `Toptancı Ödemesi: ${supplier.name}`,
+      category: 'TOPTANCI',
+      amount,
+      note: params.note || 'Toptancı Cari Ödemesi',
+      created_at: now,
+    });
+  }
+
+  saveDb(db);
+  return tx;
+}
+
+export function getSupplierTransactions(supplierId?: number, storeId?: number): SupplierTransaction[] {
+  const db = loadDb();
+  let list = db.supplier_transactions;
+  if (storeId) list = list.filter(tx => tx.store_id === storeId);
+  if (supplierId) list = list.filter(tx => tx.supplier_id === supplierId);
+  return list.slice().reverse();
+}
+

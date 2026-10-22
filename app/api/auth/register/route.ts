@@ -34,12 +34,23 @@ export async function POST(request: NextRequest) {
       seedTemplate: seedTemplate !== false,
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: 'Kayıt başarılı! 14 günlük ücretsiz deneme süreniz başlatıldı.',
       user: result.user,
       store: result.store,
+      token: result.token,
     });
+
+    response.cookies.set('esnafcepte_token', result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 72 * 3600,
+    });
+
+    return response;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Kayıt sırasında bir hata oluştu.';
     return NextResponse.json({ error: message }, { status: 400 });

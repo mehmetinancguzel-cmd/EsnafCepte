@@ -13,6 +13,7 @@ import {
   QrCode,
   ShieldCheck,
 } from 'lucide-react';
+import { createEArchiveInvoice } from '@/lib/earchive';
 
 interface InvoiceItem {
   name: string;
@@ -122,10 +123,51 @@ _EsnafCepte • İnanoraSoft Dijital Fatura_`;
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={() => {
+                const res = createEArchiveInvoice({
+                  issueDate: invoiceDate,
+                  issueTime: '12:00:00',
+                  invoiceType: 'SATIS',
+                  currency: 'TRY',
+                  seller: {
+                    vknTckn: '1234567890',
+                    title: storeName,
+                    taxOffice: 'Beşiktaş V.D.',
+                    address: storeAddress,
+                    phone: storePhone,
+                  },
+                  buyer: {
+                    vknTckn: buyerTaxId || '11111111111',
+                    title: buyerName || 'Nihai Tüketici',
+                    address: buyerAddress,
+                    phone: customerPhone,
+                  },
+                  items: defaultItems.map(it => ({
+                    name: it.name,
+                    quantity: it.quantity,
+                    unit: 'Adet',
+                    unitPrice: it.unit_price,
+                    kdvRate: (it.kdv_rate || 10) as 1 | 10 | 20,
+                  })),
+                });
+
+                const blob = new Blob([res.ublXml], { type: 'application/xml' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${res.invoiceNo}_UBL_TR.xml`;
+                a.click();
+              }}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm"
+              title="GİB Uyumlu UBL-TR 2.1 Resmi XML İndir"
+            >
+              <Download className="w-3.5 h-3.5" /> UBL-TR XML
+            </button>
+            <button
               onClick={handleSendWhatsapp}
               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm"
             >
-              <Send className="w-3.5 h-3.5" /> WhatsApp ile Gönder
+              <Send className="w-3.5 h-3.5" /> WhatsApp
             </button>
             <button
               onClick={handlePrint}

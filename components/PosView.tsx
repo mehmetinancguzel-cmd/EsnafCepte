@@ -36,6 +36,8 @@ import ScaleModal from '@/components/ScaleModal';
 import CriticalStockListModal from '@/components/CriticalStockListModal';
 import SupplierOrderModal from '@/components/SupplierOrderModal';
 import { parseScaleBarcode } from '@/lib/scale';
+import { buildSaleReceiptBytes, printDirectWebUsb } from '@/lib/escpos';
+import { PosBridgeClient } from '@/lib/pos-bridge';
 
 export interface Customer {
   id: number;
@@ -264,6 +266,36 @@ _EsnafCepte • Dijital Çevre Dostu E-Fiş_`;
     window.open(url, '_blank');
   };
 
+  const handleEscPosPrint = async (receipt = lastReceipt) => {
+    if (!receipt) return;
+    try {
+      const bytes = buildSaleReceiptBytes({
+        storeName,
+        saleCode: receipt.sale_code,
+        items: receipt.items,
+        totalAmount: receipt.total_amount,
+        discount: receipt.discount,
+        paymentMethod: receipt.payment_method,
+        customerName: receipt.customer_name || activeCustomer?.name,
+        dateStr: new Date(receipt.created_at).toLocaleString('tr-TR'),
+        autoDrawer: true,
+      });
+
+      // Try Direct WebUSB ESC/POS first if supported, fallback to window.print
+      if (typeof navigator !== 'undefined' && (navigator as any).usb) {
+        const res = await printDirectWebUsb(bytes);
+        if (res.success) {
+          setMessage({ text: '🖨️ Fiş termal yazıcıya iletildi ve çekmece tetiklendi!', type: 'success' });
+          setTimeout(() => setMessage(null), 3000);
+          return;
+        }
+      }
+      window.print();
+    } catch {
+      window.print();
+    }
+  };
+
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -444,6 +476,19 @@ _EsnafCepte • Dijital Çevre Dostu E-Fiş_`;
 
     setLoading(true);
     try {
+      if (paymentMethod === 'KREDI_KARTI') {
+        setMessage({ text: '📡 Fiziki POS Terminaline Tutar İletiliyor (IP-POS / GMP-3)...', type: 'success' });
+        const posBridge = new PosBridgeClient();
+        const posRes = await posBridge.processPayment({
+          amount: total,
+          currency: 'TRY',
+          saleCode: `SLS-${Date.now().toString().slice(-6)}`,
+        });
+        if (!posRes.success) {
+          throw new Error(posRes.errorMessage || 'POS cihazından onay alınamadı.');
+        }
+      }
+
       const payload = {
         store_id: storeId,
         payment_method: paymentMethod,
@@ -957,11 +1002,12 @@ _EsnafCepte • Dijital Çevre Dostu E-Fiş_`;
                 {activeCustomer ? `${activeCustomer.name.split(' ')[0]}` : 'Veresiye'}
               </button>
               <button
-                onClick={() => lastReceipt && window.print()}
+                onClick={() => handleEscPosPrint()}
                 disabled={!lastReceipt}
                 className="py-2.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 rounded-xl font-semibold text-xs transition-colors flex items-center justify-center gap-1"
+                title="ESC/POS Termal Fiş Yazdır & Para Çekmecesini Aç"
               >
-                <Receipt className="w-3.5 h-3.5" /> Fiş
+                <Receipt className="w-3.5 h-3.5" /> Fiş (ESC/POS)
               </button>
               <button
                 onClick={() => handleSendWhatsappReceipt()}

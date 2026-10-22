@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Scale,
   X,
@@ -11,7 +11,10 @@ import {
   Barcode,
   ShoppingBag,
   Zap,
+  Cable,
+  Check,
 } from 'lucide-react';
+import { SerialScaleDriver } from '@/lib/serial-scale';
 
 interface Product {
   id: number;
@@ -57,6 +60,47 @@ export default function ScaleModal({
   const [weightKg, setWeightKg] = useState<number>(1.0);
   const [search, setSearch] = useState('');
   const [isStable, setIsStable] = useState(true);
+  const [scaleConnected, setScaleConnected] = useState(false);
+  const [scaleConnecting, setScaleConnecting] = useState(false);
+  const scaleDriverRef = useRef<SerialScaleDriver | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (scaleDriverRef.current) {
+        scaleDriverRef.current.disconnect();
+      }
+    };
+  }, []);
+
+  const handleConnectScale = async () => {
+    if (scaleConnected) {
+      if (scaleDriverRef.current) {
+        await scaleDriverRef.current.disconnect();
+      }
+      setScaleConnected(false);
+      return;
+    }
+
+    setScaleConnecting(true);
+    try {
+      const driver = new SerialScaleDriver();
+      scaleDriverRef.current = driver;
+
+      driver.onWeight((reading) => {
+        setWeightKg(reading.weightKg);
+        setIsStable(reading.isStable);
+      });
+
+      const success = await driver.connect(9600, 'CAS');
+      if (success) {
+        setScaleConnected(true);
+      }
+    } catch (e: any) {
+      alert(e.message || 'Fiziki teraziye bağlanılamadı.');
+    } finally {
+      setScaleConnecting(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -138,6 +182,29 @@ export default function ScaleModal({
         </div>
 
         <div className="p-5 max-h-[85vh] overflow-y-auto space-y-5 text-xs">
+          {/* Physical Serial Scale Connector Bar */}
+          <div className="flex items-center justify-between bg-slate-100 p-2.5 rounded-2xl border border-slate-200">
+            <div className="flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${scaleConnected ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+              <span className="font-bold text-slate-700">
+                {scaleConnected ? 'Fiziki Terazi Bağlı (Canlı Veri Akışı Aktif)' : 'Fiziki Terazi (COM/RS-232/USB)'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleConnectScale}
+              disabled={scaleConnecting}
+              className={`px-3 py-1.5 rounded-xl font-bold text-[11px] transition-all flex items-center gap-1.5 ${
+                scaleConnected
+                  ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
+              }`}
+            >
+              <Cable className="w-3.5 h-3.5" />
+              {scaleConnecting ? 'Bağlanıyor...' : scaleConnected ? 'Bağlantıyı Kes' : '🔌 Teraziye Bağlan'}
+            </button>
+          </div>
+
           {/* Real-time Digital Scale Display (Bizerba/CAS style LED) */}
           <div className="bg-slate-950 p-4 rounded-2xl border-2 border-slate-800 shadow-inner text-white flex flex-col sm:flex-row items-center justify-between gap-4">
             {/* LED Screen */}

@@ -1,0 +1,251 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum StoreSector {
+  KIRTASIYE_TUHAFIYE
+  MARKET
+  BUTIK_GIYIM
+  HIRDAVAT
+  DIGER
+}
+
+enum UserPlan {
+  TRIAL
+  STARTER
+  GROWTH
+  ENTERPRISE
+}
+
+enum PaymentMethod {
+  NAKIT
+  KREDI_KARTI
+  VERESIYE
+}
+
+enum MovementType {
+  GIRIS
+  CIKIS
+  SATIS
+  SAYIM_DUZELTME
+  IADE
+}
+
+enum InvoiceStatus {
+  ODENDI
+  KISMI
+  ACIK_HESAP
+}
+
+model Store {
+  id                    Int                   @id @default(autoincrement())
+  name                  String
+  sector                StoreSector           @default(DIGER)
+  phone                 String?
+  address               String?
+  auto_supplier_whatsapp Boolean              @default(false)
+  supplier_name         String?
+  supplier_phone        String?
+  patron_pin            String?               @default("1234")
+  tax_id                String?
+  tax_office            String?
+  scale_prefix          String?               @default("27")
+  created_at            DateTime              @default(now())
+
+  users                 User[]
+  products              Product[]
+  sales                 Sale[]
+  stock_movements       StockMovement[]
+  customers             Customer[]
+  expenses              Expense[]
+  suppliers             Supplier[]
+  purchase_invoices     PurchaseInvoice[]
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  store_id      Int
+  name          String
+  email         String    @unique
+  phone         String
+  password_hash String
+  plan          UserPlan  @default(TRIAL)
+  trial_ends_at DateTime
+  created_at    DateTime  @default(now())
+
+  store         Store     @relation(fields: [store_id], references: [id], onDelete: Cascade)
+}
+
+model Product {
+  id             Int       @id @default(autoincrement())
+  store_id       Int
+  barcode        String
+  name           String
+  category       String
+  variant        String?
+  cost_price     Decimal   @db.Decimal(10, 2)
+  sale_price     Decimal   @db.Decimal(10, 2)
+  stock_quantity Decimal   @db.Decimal(10, 3)
+  critical_level Decimal   @db.Decimal(10, 3) @default(5)
+  unit           String    @default("Adet")
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  store          Store     @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  movements      StockMovement[]
+
+  @@unique([store_id, barcode])
+}
+
+model StockMovement {
+  id           Int          @id @default(autoincrement())
+  store_id     Int
+  product_id   Int
+  product_name String
+  barcode      String
+  type         MovementType
+  quantity     Decimal      @db.Decimal(10, 3)
+  note         String?
+  created_at   DateTime     @default(now())
+
+  store        Store        @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [product_id], references: [id], onDelete: Cascade)
+}
+
+model Sale {
+  id             Int           @id @default(autoincrement())
+  store_id       Int
+  sale_code      String        @unique
+  total_amount   Decimal       @db.Decimal(10, 2)
+  discount       Decimal       @db.Decimal(10, 2) @default(0)
+  payment_method PaymentMethod @default(NAKIT)
+  customer_id    Int?
+  customer_name  String?
+  created_at     DateTime      @default(now())
+
+  store          Store         @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  customer       Customer?     @relation(fields: [customer_id], references: [id], onDelete: SetNull)
+  items          SaleItem[]
+}
+
+model SaleItem {
+  id          Int      @id @default(autoincrement())
+  sale_id     Int
+  product_id  Int
+  barcode     String
+  name        String
+  variant     String?
+  unit_price  Decimal  @db.Decimal(10, 2)
+  quantity    Decimal  @db.Decimal(10, 3)
+  total_price Decimal  @db.Decimal(10, 2)
+
+  sale        Sale     @relation(fields: [sale_id], references: [id], onDelete: Cascade)
+}
+
+model Customer {
+  id           Int                   @id @default(autoincrement())
+  store_id     Int
+  name         String
+  phone        String
+  note         String?
+  balance      Decimal               @db.Decimal(10, 2) @default(0)
+  created_at   DateTime              @default(now())
+  updated_at   DateTime              @updatedAt
+
+  store        Store                 @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  sales        Sale[]
+  transactions CustomerTransaction[]
+}
+
+model CustomerTransaction {
+  id          Int      @id @default(autoincrement())
+  store_id    Int
+  customer_id Int
+  type        String   // BORC or TAHSILAT
+  amount      Decimal  @db.Decimal(10, 2)
+  sale_code   String?
+  note        String?
+  created_at  DateTime @default(now())
+
+  customer    Customer @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+}
+
+model Expense {
+  id         Int      @id @default(autoincrement())
+  store_id   Int
+  title      String
+  category   String   // TOPTANCI, PERSONEL, FATURA, KIRA, YEMEK, DIGER
+  amount     Decimal  @db.Decimal(10, 2)
+  note       String?
+  created_at DateTime @default(now())
+
+  store      Store    @relation(fields: [store_id], references: [id], onDelete: Cascade)
+}
+
+model Supplier {
+  id           Int                   @id @default(autoincrement())
+  store_id     Int
+  name         String
+  company_name String?
+  phone        String
+  email        String?
+  address      String?
+  tax_id       String?
+  tax_office   String?
+  balance      Decimal               @db.Decimal(10, 2) @default(0)
+  created_at   DateTime              @default(now())
+
+  store        Store                 @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  invoices     PurchaseInvoice[]
+  transactions SupplierTransaction[]
+}
+
+model PurchaseInvoice {
+  id             Int           @id @default(autoincrement())
+  store_id       Int
+  supplier_id    Int
+  supplier_name  String
+  invoice_no     String
+  invoice_date   DateTime
+  due_date       DateTime?
+  total_amount   Decimal       @db.Decimal(10, 2)
+  paid_amount    Decimal       @db.Decimal(10, 2) @default(0)
+  payment_status InvoiceStatus @default(ACIK_HESAP)
+  note           String?
+  created_at     DateTime      @default(now())
+
+  store          Store         @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  supplier       Supplier      @relation(fields: [supplier_id], references: [id], onDelete: Cascade)
+  items          PurchaseInvoiceItem[]
+}
+
+model PurchaseInvoiceItem {
+  id          Int             @id @default(autoincrement())
+  invoice_id  Int
+  barcode     String
+  name        String
+  quantity    Decimal         @db.Decimal(10, 3)
+  unit        String          @default("Adet")
+  unit_cost   Decimal         @db.Decimal(10, 2)
+  total_cost  Decimal         @db.Decimal(10, 2)
+
+  invoice     PurchaseInvoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+}
+
+model SupplierTransaction {
+  id             Int      @id @default(autoincrement())
+  store_id       Int
+  supplier_id    Int
+  type           String   // FATURA_ALIS or ODEME
+  amount         Decimal  @db.Decimal(10, 2)
+  payment_method String?  // NAKIT, HAVALE_EFT, KREDI_KARTI, CEK
+  note           String?
+  created_at     DateTime @default(now())
+
+  supplier       Supplier @relation(fields: [supplier_id], references: [id], onDelete: Cascade)
+}
