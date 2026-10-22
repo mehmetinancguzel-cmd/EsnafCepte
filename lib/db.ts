@@ -58,16 +58,48 @@ export interface SupplierTransaction {
 export interface Store {
   id: number;
   name: string;
+  company_title?: string; // Resmi Fatura Unvanı
   sector: StoreSector;
   phone?: string;
+  email?: string;
   address?: string;
   auto_supplier_whatsapp?: boolean;
   supplier_name?: string;
   supplier_phone?: string;
   patron_pin?: string;
-  tax_id?: string;
-  tax_office?: string;
-  scale_prefix?: string;
+  tax_id?: string; // VKN / TCKN
+  tax_office?: string; // Vergi Dairesi
+  mersis_no?: string;
+  trade_reg_no?: string; // Ticaret Sicil No
+
+  // GİB & E-Fatura Entegrasyon Ayarları
+  gib_mode?: 'PORTAL' | 'ENTEGRATOR';
+  gib_username?: string;
+  gib_password?: string;
+  integrator_name?: string;
+  integrator_api_key?: string;
+  integrator_api_secret?: string;
+  invoice_prefix?: string; // Örn: 'EAC2026'
+
+  // Donanım & Çevre Birimleri Ayarları
+  pos_connection_type?: 'SERIAL_COM' | 'IP_NETWORK' | 'SIMULATOR';
+  pos_com_port?: string; // Örn: 'COM3'
+  pos_baud_rate?: number; // Örn: 9600
+  pos_model?: string; // Örn: 'Beko 300TR'
+  pos_ip_address?: string; // Örn: '192.168.1.150'
+  pos_ip_port?: number; // Örn: 9100
+
+  scale_connection_type?: 'SERIAL_COM' | 'MANUAL_PLU';
+  scale_com_port?: string; // Örn: 'COM1'
+  scale_baud_rate?: number; // Örn: 9600
+  scale_protocol?: string; // Örn: 'CAS'
+  scale_prefix?: string; // Örn: '27'
+
+  printer_type?: 'WEBUSB' | 'WINDOWS_DRIVER';
+  printer_paper_width?: '58mm' | '80mm';
+  auto_print_receipt?: boolean;
+  auto_kick_drawer?: boolean;
+
   created_at: string;
 }
 
@@ -105,6 +137,7 @@ export interface Product {
   stock_quantity: number;
   critical_level: number;
   unit: string;
+  plu_code?: string; // 4 haneli Terazi PLU Kodu (örn: '1001')
   created_at: string;
   updated_at: string;
 }
@@ -420,6 +453,27 @@ export function loadDb(): DatabaseSchema {
     // Assign store_id: 1 to any legacy records missing store_id
     for (const p of parsed.products) {
       if (!p.store_id) { p.store_id = 1; mutated = true; }
+    }
+
+    // Auto-assign 4-digit PLU codes (1001, 1002, ...) to weighed products lacking PLU
+    const weighedItems = parsed.products.filter(
+      (p: Product) =>
+        p.unit?.toLowerCase() === 'kg' ||
+        p.unit?.toLowerCase() === 'kilo' ||
+        ['manav', 'şarküteri', 'sarkuteri', 'kuruyemiş', 'kasap'].includes(p.category?.toLowerCase() || '')
+    );
+    let nextPluSeq = 1001;
+    for (const p of parsed.products) {
+      if (p.plu_code && /^\d{4}$/.test(p.plu_code)) {
+        const val = parseInt(p.plu_code, 10);
+        if (val >= nextPluSeq) nextPluSeq = val + 1;
+      }
+    }
+    for (const p of weighedItems) {
+      if (!p.plu_code) {
+        p.plu_code = String(nextPluSeq++).padStart(4, '0');
+        mutated = true;
+      }
     }
     for (const s of parsed.sales) {
       if (!s.store_id) { s.store_id = 1; mutated = true; }
@@ -741,18 +795,51 @@ export function getProductById(id: number, storeId?: number): Product | undefine
   return db.products.find(p => p.id === id);
 }
 
+export function getNextPluCode(storeId: number = 1): string {
+  const db = loadDb();
+  const storeProducts = db.products.filter(p => p.store_id === storeId);
+  const pluNumbers: number[] = [];
+  for (const p of storeProducts) {
+    if (p.plu_code && /^\d{4}$/.test(p.plu_code)) {
+      pluNumbers.push(parseInt(p.plu_code, 10));
+    }
+  }
+  if (pluNumbers.length === 0) return '1001';
+  const max = Math.max(...pluNumbers);
+  return String(max + 1).padStart(4, '0');
+}
+
+export function getProductByPlu(pluCode: string, storeId?: number): Product | undefined {
+  const db = loadDb();
+  const trimmed = pluCode.trim();
+  if (!trimmed) return undefined;
+  if (storeId) {
+    return db.products.find(p => p.store_id === storeId && p.plu_code === trimmed);
+  }
+  return db.products.find(p => p.plu_code === trimmed);
+}
+
 export function saveProduct(data: Omit<Product, 'id' | 'created_at' | 'updated_at'> & { id?: number; store_id?: number }): Product {
   const db = loadDb();
   const now = new Date().toISOString();
   const targetStoreId = data.store_id || 1;
 
+  const isWeighed =
+    (data.unit && (data.unit.toLowerCase() === 'kg' || data.unit.toLowerCase() === 'kilo')) ||
+    (data.category && ['manav', 'şarküteri', 'sarkuteri', 'kuruyemiş', 'kasap', 'bakliyat'].includes(data.category.toLowerCase()));
+
   if (data.id) {
     const idx = db.products.findIndex(p => p.id === data.id);
     if (idx !== -1) {
       const existing = db.products[idx];
+      let assignedPlu = data.plu_code !== undefined ? data.plu_code : existing.plu_code;
+      if (isWeighed && !assignedPlu) {
+        assignedPlu = getNextPluCode(data.store_id || existing.store_id || targetStoreId);
+      }
       const updated: Product = {
         ...existing,
         ...data,
+        plu_code: assignedPlu,
         store_id: data.store_id || existing.store_id || targetStoreId,
         id: existing.id,
         updated_at: now,
@@ -771,8 +858,14 @@ export function saveProduct(data: Omit<Product, 'id' | 'created_at' | 'updated_a
     throw new Error(`Bu barkod (${data.barcode}) bu dükkanda zaten kayıtlı: ${existingBarcode.name}`);
   }
 
+  let finalPlu = data.plu_code;
+  if (isWeighed && !finalPlu) {
+    finalPlu = getNextPluCode(targetStoreId);
+  }
+
   const newProduct: Product = {
     ...data,
+    plu_code: finalPlu,
     store_id: targetStoreId,
     barcode: data.barcode.trim(),
     id: db.nextId.product++,
@@ -1427,45 +1520,19 @@ export function deleteExpense(id: number, storeId: number): boolean {
 // ================= STORE SETTINGS & SUPPLIER METHODS =================
 export function updateStoreSupplierSettings(
   storeId: number,
-  settings: {
-    auto_supplier_whatsapp?: boolean;
-    supplier_name?: string;
-    supplier_phone?: string;
-    patron_pin?: string;
-    tax_id?: string;
-    tax_office?: string;
-    scale_prefix?: string;
-  }
+  settings: Partial<Store>
 ): Store {
   const db = loadDb();
   const store = db.stores.find(s => s.id === storeId);
   if (!store) throw new Error('Mağaza bulunamadı');
 
-  if (settings.auto_supplier_whatsapp !== undefined) {
-    store.auto_supplier_whatsapp = settings.auto_supplier_whatsapp;
-  }
-  if (settings.supplier_name !== undefined) {
-    store.supplier_name = settings.supplier_name;
-  }
-  if (settings.supplier_phone !== undefined) {
-    store.supplier_phone = settings.supplier_phone;
-  }
-  if (settings.patron_pin !== undefined) {
-    store.patron_pin = settings.patron_pin;
-  }
-  if (settings.tax_id !== undefined) {
-    store.tax_id = settings.tax_id;
-  }
-  if (settings.tax_office !== undefined) {
-    store.tax_office = settings.tax_office;
-  }
-  if (settings.scale_prefix !== undefined) {
-    store.scale_prefix = settings.scale_prefix;
-  }
+  Object.assign(store, settings);
 
   saveDb(db);
   return store;
 }
+
+export const updateStoreSettings = updateStoreSupplierSettings;
 
 // ================= DAILY Z REPORT (GÜN SONU MUTABAKAT) =================
 export interface DailyZReport {

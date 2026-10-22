@@ -1410,7 +1410,10 @@
     "customerTransaction": 6,
     "store": 6,
     "user": 4,
-    "expense": 2
+    "expense": 2,
+    "supplier": 3,
+    "purchaseInvoice": 1,
+    "supplierTransaction": 1
   },
   "stores": [
     {
@@ -1483,8 +1486,8 @@
       "name": "Mehmet Güzel",
       "email": "hasistiro@gmail.com",
       "phone": "5454185897",
-      "password_hash": "159357",
-      "plan": "GROWTH",
+      "password_hash": "5af10461cb71c27b756ec553dae0f927:27021bdf66a9f4bc82ce6da4dd302c7a021a7529cf7de6f40b6633a7ef284cc3d182c9ba467748da95f307895a88e299fdb167840f88654d26be63da5f8ee38e",
+      "plan": "ENTERPRISE",
       "trial_ends_at": "2026-10-31T10:03:06.194Z",
       "created_at": "2026-10-17T10:03:06.194Z"
     }
@@ -1499,5 +1502,35 @@
       "note": "Kasa Nakit İadesi (1 Kg - REF-715434)",
       "created_at": "2026-10-17T13:45:15.434Z"
     }
-  ]
+  ],
+  "suppliers": [
+    {
+      "id": 1,
+      "store_id": 1,
+      "name": "Mega Toptan Gıda & Kırtasiye A.Ş.",
+      "company_name": "Mega Toptan Dağıtım Pazarlama Ltd.",
+      "phone": "0212 555 10 20",
+      "email": "siparis@megatoptan.com",
+      "address": "İstoç Toptancılar Çarşısı 12. Ada No:45 Bağcılar / İstanbul",
+      "tax_id": "6140589123",
+      "tax_office": "İkitelli",
+      "balance": 1850,
+      "created_at": "2026-10-22T16:08:49.735Z"
+    },
+    {
+      "id": 2,
+      "store_id": 1,
+      "name": "İpek Tuhafiye & Tekstil Toptan",
+      "company_name": "İpek İplik San. Tic.",
+      "phone": "0212 666 30 40",
+      "email": "info@ipektuhafiye.com",
+      "address": "Tahtakale Cad. No:28 Eminönü / İstanbul",
+      "tax_id": "4780129876",
+      "tax_office": "Hocapaşa",
+      "balance": 0,
+      "created_at": "2026-10-22T16:08:49.735Z"
+    }
+  ],
+  "purchase_invoices": [],
+  "supplier_transactions": []
 }

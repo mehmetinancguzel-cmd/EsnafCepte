@@ -57,6 +57,7 @@ interface Product {
   stock_quantity: number;
   critical_level: number;
   unit: string;
+  plu_code?: string;
 }
 
 interface CartItem {
@@ -136,6 +137,14 @@ export default function PosView({
   const [activeRole, setActiveRole] = useState<'PATRON' | 'KASIYER'>('PATRON');
   const [rolePinModalOpen, setRolePinModalOpen] = useState(false);
   const [pinTargetAction, setPinTargetAction] = useState<(() => void) | null>(null);
+  const [storeSettings, setStoreSettings] = useState<any>(null);
+
+  useEffect(() => {
+    fetch(`/api/stores/settings?storeId=${storeId}`)
+      .then(r => r.json())
+      .then(data => setStoreSettings(data))
+      .catch(console.error);
+  }, [storeId]);
 
   useEffect(() => {
     try {
@@ -351,6 +360,23 @@ _EsnafCepte • Dijital Çevre Dostu E-Fiş_`;
     if (e) e.preventDefault();
     const code = barcodeInput.trim();
     if (!code) return;
+
+    // 0. 4 Haneli Terazi PLU Kodu Kontrolü (örn: 1001, 1002...)
+    if (/^\d{4}$/.test(code)) {
+      const pluFound = products.find(p => p.plu_code === code);
+      if (pluFound) {
+        setScaleModalProduct(pluFound);
+        setScaleModalOpen(true);
+        setBarcodeInput('');
+        playBeep('success');
+        setMessage({
+          text: `⚖️ Terazi Ürünü: ${pluFound.name} (PLU: ${code}) tartıma alındı.`,
+          type: 'success',
+        });
+        setTimeout(() => setMessage(null), 3000);
+        return;
+      }
+    }
 
     // 1. Terazi Barkodu Kontrolü (27, 28, 29 ile başlayan EAN-13 ağırlıklı barkodlar)
     const scale = parseScaleBarcode(code);
@@ -1336,6 +1362,12 @@ _EsnafCepte • Dijital Çevre Dostu E-Fiş_`;
         isOpen={eInvoiceModalOpen}
         onClose={() => setEInvoiceModalOpen(false)}
         storeName={storeName}
+        storeCompanyTitle={storeSettings?.company_title}
+        storeTaxId={storeSettings?.tax_id}
+        storeTaxOffice={storeSettings?.tax_office}
+        storeMersisNo={storeSettings?.mersis_no}
+        storeAddress={storeSettings?.address}
+        storePhone={storeSettings?.phone}
         saleCode={lastReceipt?.sale_code || 'SLS-TASLAK'}
         totalAmount={lastReceipt ? lastReceipt.total_amount : total}
         items={lastReceipt ? lastReceipt.items : cart.map(i => ({

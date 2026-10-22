@@ -26,6 +26,7 @@ interface Product {
   stock_quantity: number;
   critical_level: number;
   unit: string;
+  plu_code?: string;
 }
 
 interface ScaleModalProps {
@@ -59,6 +60,7 @@ export default function ScaleModal({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [weightKg, setWeightKg] = useState<number>(1.0);
   const [search, setSearch] = useState('');
+  const [pluInput, setPluInput] = useState('');
   const [isStable, setIsStable] = useState(true);
   const [scaleConnected, setScaleConnected] = useState(false);
   const [scaleConnecting, setScaleConnecting] = useState(false);
@@ -104,13 +106,16 @@ export default function ScaleModal({
 
   useEffect(() => {
     if (isOpen) {
+      let targetProd: Product | null = null;
       if (initialProduct) {
-        setSelectedProduct(initialProduct);
+        targetProd = initialProduct;
       } else if (weighedProducts.length > 0) {
-        setSelectedProduct(weighedProducts[0]);
+        targetProd = weighedProducts[0];
       } else if (products.length > 0) {
-        setSelectedProduct(products[0]);
+        targetProd = products[0];
       }
+      setSelectedProduct(targetProd);
+      setPluInput(targetProd?.plu_code || '');
       setWeightKg(1.0);
       setSearch('');
     }
@@ -156,6 +161,7 @@ export default function ScaleModal({
     p =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.barcode.includes(search) ||
+      (p.plu_code && p.plu_code.includes(search)) ||
       p.category.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -227,6 +233,71 @@ export default function ScaleModal({
               <div className="text-[10px] text-slate-500 font-mono">
                 Terazi Kodu: {generateScaleBarcode()}
               </div>
+            </div>
+          </div>
+
+          {/* 4 Haneli Terazi PLU Kodu Giriş Çubuğu (Örn: 1001 Elma, 1002 Peynir) */}
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white font-black text-xs flex items-center justify-center shadow-sm">
+                PLU
+              </div>
+              <div>
+                <div className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                  4 Haneli Terazi PLU Kodu
+                  <span className="text-[10px] text-amber-800 font-bold bg-amber-200/80 px-1.5 py-0.5 rounded">
+                    Tek Tuşla Otomatik Fiyat
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  Ürün kodunu yazın (örn: 1001), sistem ürünü anında seçip KG tutarını hesaplar
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                maxLength={4}
+                placeholder="1001"
+                value={pluInput}
+                onChange={e => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                  setPluInput(val);
+                  if (val.length === 4) {
+                    const match = products.find(p => p.plu_code === val);
+                    if (match) {
+                      setSelectedProduct(match);
+                    }
+                  }
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const match = products.find(p => p.plu_code === pluInput.trim());
+                    if (match) {
+                      setSelectedProduct(match);
+                    } else {
+                      alert(`PLU Kodu (${pluInput}) bulunamadı!`);
+                    }
+                  }
+                }}
+                className="w-28 px-3 py-2 bg-white border-2 border-amber-400 focus:border-amber-600 rounded-xl font-mono font-black text-base text-center text-slate-900 tracking-wider shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const match = products.find(p => p.plu_code === pluInput.trim());
+                  if (match) {
+                    setSelectedProduct(match);
+                  } else {
+                    alert(`PLU Kodu (${pluInput}) bulunamadı!`);
+                  }
+                }}
+                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs transition-colors shadow-sm"
+              >
+                Uygula
+              </button>
             </div>
           </div>
 
@@ -316,7 +387,10 @@ export default function ScaleModal({
                 return (
                   <div
                     key={p.id}
-                    onClick={() => setSelectedProduct(p)}
+                    onClick={() => {
+                      setSelectedProduct(p);
+                      setPluInput(p.plu_code || '');
+                    }}
                     className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between gap-2 ${
                       isSelected
                         ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm'
@@ -324,7 +398,14 @@ export default function ScaleModal({
                     }`}
                   >
                     <div>
-                      <div className="font-bold text-slate-800 text-xs">{p.name}</div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-slate-800 text-xs">{p.name}</span>
+                        {p.plu_code && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 font-mono font-bold text-[10px]">
+                            PLU: {p.plu_code}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
                         <span className="font-mono">{p.barcode}</span>
                         <span>•</span>

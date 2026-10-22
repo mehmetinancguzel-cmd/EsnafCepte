@@ -27,6 +27,10 @@ interface EArchiveInvoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   storeName?: string;
+  storeCompanyTitle?: string;
+  storeTaxId?: string;
+  storeTaxOffice?: string;
+  storeMersisNo?: string;
   storePhone?: string;
   storeAddress?: string;
   saleCode?: string;
@@ -40,6 +44,10 @@ export default function EArchiveInvoiceModal({
   isOpen,
   onClose,
   storeName = 'EsnafCepte Perakende',
+  storeCompanyTitle = '',
+  storeTaxId = '1234567890',
+  storeTaxOffice = 'Vergi Dairesi',
+  storeMersisNo = '',
   storePhone = '0850 123 45 67',
   storeAddress = 'İnanoraSoft Cad. No:12/A İstanbul',
   saleCode = 'SLS-10492',
@@ -130,9 +138,9 @@ _EsnafCepte • İnanoraSoft Dijital Fatura_`;
                   invoiceType: 'SATIS',
                   currency: 'TRY',
                   seller: {
-                    vknTckn: '1234567890',
-                    title: storeName,
-                    taxOffice: 'Beşiktaş V.D.',
+                    vknTckn: storeTaxId || '1234567890',
+                    title: storeCompanyTitle || storeName,
+                    taxOffice: storeTaxOffice || 'Vergi Dairesi',
                     address: storeAddress,
                     phone: storePhone,
                   },
@@ -302,10 +310,11 @@ _EsnafCepte • İnanoraSoft Dijital Fatura_`;
               <div className="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5 uppercase text-[10px] tracking-wider text-slate-500">
                 DÜZENLEYEN (SATICI BİLGİLERİ)
               </div>
-              <div className="font-bold text-slate-800">{storeName}</div>
-              <div className="text-slate-600 mt-0.5"><strong>VKN:</strong> 4810293847</div>
-              <div className="text-slate-600"><strong>Vergi Dairesi:</strong> Kadıköy V.D.</div>
-              <div className="text-slate-500">Mersis: 0481029384700001</div>
+              <div className="font-bold text-slate-800">{storeCompanyTitle || storeName}</div>
+              <div className="text-slate-600 mt-0.5"><strong>VKN/TCKN:</strong> {storeTaxId || '1234567890'}</div>
+              <div className="text-slate-600"><strong>Vergi Dairesi:</strong> {storeTaxOffice || 'Vergi Dairesi'}</div>
+              {storeMersisNo && <div className="text-slate-500">Mersis: {storeMersisNo}</div>}
+              <div className="text-slate-500 text-[11px] mt-0.5">{storeAddress}</div>
             </div>
           </div>
 

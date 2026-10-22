@@ -28,6 +28,7 @@ interface Product {
   stock_quantity: number;
   critical_level: number;
   unit: string;
+  plu_code?: string;
 }
 
 import { UserPlan } from '@/lib/db';
@@ -117,13 +118,18 @@ export default function ProductsView({
     setEditingProduct(prev => ({ ...prev, barcode: randomEan }));
   };
 
-  const categories = ['TÜMÜ', 'Kırtasiye', 'Tuhafiye', 'İç Giyim', 'El İşi'];
+  // Dinamik Kategoriler (Veritabanındaki gerçek ürün kategorilerinden otomatik üretilir)
+  const availableCategories = [
+    'TÜMÜ',
+    ...Array.from(new Set(products.map(p => p.category).filter(Boolean))),
+  ];
 
   const filtered = products.filter(p => {
     const matchCat = categoryFilter === 'TÜMÜ' || p.category.toLowerCase() === categoryFilter.toLowerCase();
     const matchSearch =
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.barcode.includes(search) ||
+      (p.plu_code && p.plu_code.includes(search)) ||
       (p.variant && p.variant.toLowerCase().includes(search.toLowerCase()));
     return matchCat && matchSearch;
   });
@@ -191,7 +197,7 @@ export default function ProductsView({
                 return;
               }
               setEditingProduct({
-                category: 'Kırtasiye',
+                category: 'Genel',
                 unit: 'Adet',
                 cost_price: 0,
                 sale_price: 0,
@@ -242,21 +248,19 @@ export default function ProductsView({
             />
           </div>
 
-          {/* Category Tabs */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-1 text-xs">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-3 py-2 rounded-xl font-semibold transition-all whitespace-nowrap ${
-                  categoryFilter === cat
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          {/* Dynamic Category Filter */}
+          <div className="flex items-center gap-2">
+            <select
+              value={categoryFilter}
+              onChange={e => setCategoryFilter(e.target.value)}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+            >
+              {availableCategories.map(cat => (
+                <option key={cat} value={cat}>
+                  {cat === 'TÜMÜ' ? 'Tüm Kategoriler' : cat}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
@@ -292,7 +296,17 @@ export default function ProductsView({
                         {p.barcode}
                       </td>
                       <td className="py-3 px-4">
-                        <div className="font-bold text-slate-800">{p.name}</div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-slate-800">{p.name}</span>
+                          {p.plu_code && (
+                            <span
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-300"
+                              title="Terazi 4 Haneli PLU Kodu"
+                            >
+                              ⚖️ PLU: {p.plu_code}
+                            </span>
+                          )}
+                        </div>
                         {p.variant && (
                           <span className="inline-block mt-0.5 px-2 py-0.5 rounded text-[11px] bg-purple-50 text-purple-700 font-semibold border border-purple-200">
                             {p.variant}
@@ -391,16 +405,19 @@ export default function ProductsView({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-600 block mb-1">Kategori</label>
-                  <select
-                    value={editingProduct.category || 'Kırtasiye'}
+                  <input
+                    type="text"
+                    list="category-suggestions"
+                    placeholder="Örn: Manav, Şarküteri, Gıda, Temizlik..."
+                    value={editingProduct.category || ''}
                     onChange={e => setEditingProduct({ ...editingProduct, category: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium"
-                  >
-                    <option value="Kırtasiye">Kırtasiye</option>
-                    <option value="Tuhafiye">Tuhafiye</option>
-                    <option value="İç Giyim">İç Giyim</option>
-                    <option value="El İşi">El İşi</option>
-                  </select>
+                  />
+                  <datalist id="category-suggestions">
+                    {availableCategories.filter(c => c !== 'TÜMÜ').map(cat => (
+                      <option key={cat} value={cat} />
+                    ))}
+                  </datalist>
                 </div>
 
                 <div>
@@ -440,7 +457,7 @@ export default function ProductsView({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="font-bold text-slate-600 block mb-1">Mevcut Stok</label>
                   <input
@@ -463,11 +480,33 @@ export default function ProductsView({
 
                 <div>
                   <label className="font-bold text-slate-600 block mb-1">Birim</label>
-                  <input
-                    type="text"
+                  <select
                     value={editingProduct.unit || 'Adet'}
                     onChange={e => setEditingProduct({ ...editingProduct, unit: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                  >
+                    <option value="Adet">Adet</option>
+                    <option value="Kg">Kg (Tartımlı)</option>
+                    <option value="Gram">Gram</option>
+                    <option value="Litre">Litre</option>
+                    <option value="Metre">Metre</option>
+                    <option value="Paket">Paket</option>
+                    <option value="Koli">Koli</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-600 block mb-1">
+                    Terazi PLU
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={4}
+                    placeholder={editingProduct.unit === 'Kg' ? 'Oto (1001)' : '4 Hane'}
+                    value={editingProduct.plu_code || ''}
+                    onChange={e => setEditingProduct({ ...editingProduct, plu_code: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm"
+                    title="Tartımlı ürünler için tek seferlik 4 haneli terazi kodu"
                   />
                 </div>
               </div>

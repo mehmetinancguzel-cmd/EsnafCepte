@@ -23,6 +23,7 @@ import {
   Globe,
   User as UserIcon,
   Truck,
+  Settings,
 } from 'lucide-react';
 import PosView from '@/components/PosView';
 import AuditView from '@/components/AuditView';
@@ -32,6 +33,7 @@ import CustomersView, { Customer } from '@/components/CustomersView';
 import SuppliersView from '@/components/SuppliersView';
 import MovementsView from '@/components/MovementsView';
 import ReportsView from '@/components/ReportsView';
+import SettingsView from '@/components/SettingsView';
 import LandingView from '@/components/LandingView';
 import RegisterModal from '@/components/RegisterModal';
 import LoginModal from '@/components/LoginModal';
@@ -49,7 +51,7 @@ interface StoreItem {
 }
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'POS' | 'AUDIT' | 'PRODUCTS' | 'LABELS' | 'CUSTOMERS' | 'SUPPLIERS' | 'MOVEMENTS' | 'REPORTS'>('POS');
+  const [activeTab, setActiveTab] = useState<'POS' | 'AUDIT' | 'PRODUCTS' | 'LABELS' | 'CUSTOMERS' | 'SUPPLIERS' | 'MOVEMENTS' | 'REPORTS' | 'SETTINGS'>('POS');
   const [time, setTime] = useState<string>('');
   const [selectedCustomerForSale, setSelectedCustomerForSale] = useState<Customer | null>(null);
 
@@ -394,6 +396,19 @@ export default function Home() {
               Broşür Kiti
             </Link>
 
+            {/* Quick Settings Button */}
+            <button
+              onClick={() => setActiveTab('SETTINGS')}
+              className={`p-1.5 rounded-xl border transition-all ${
+                activeTab === 'SETTINGS'
+                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                  : 'bg-slate-800 text-slate-300 hover:text-white border-slate-700'
+              }`}
+              title="Sistem ve Donanım Ayarları"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+
             {/* Back to Landing Site */}
             <button
               onClick={() => setIsLandingView(true)}
@@ -485,6 +500,14 @@ export default function Home() {
           <ReportsView
             storeId={activeStore?.id || 1}
             storeName={activeStore?.name || 'EsnafCepte'}
+          />
+        )}
+        {activeTab === 'SETTINGS' && (
+          <SettingsView
+            storeId={activeStore?.id || 1}
+            onSettingsSaved={() => {
+              fetchStores();
+            }}
           />
         )}
       </main>
@@ -595,6 +618,19 @@ export default function Home() {
           >
             <BarChart3 className="w-5 h-5 mb-1" />
             <span className="text-[11px] font-bold tracking-tight">Raporlar</span>
+          </button>
+
+          {/* 9. Ayarlar */}
+          <button
+            onClick={() => setActiveTab('SETTINGS')}
+            className={`flex-1 flex flex-col items-center py-1.5 px-1 sm:px-2 rounded-2xl transition-all duration-200 ${
+              activeTab === 'SETTINGS'
+                ? 'bg-gradient-to-t from-emerald-600 to-teal-500 text-white shadow-lg shadow-emerald-500/25 scale-105'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <Settings className="w-5 h-5 mb-1" />
+            <span className="text-[11px] font-bold tracking-tight">Ayarlar</span>
           </button>
 
         </div>
