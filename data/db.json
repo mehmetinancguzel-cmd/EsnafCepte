@@ -837,7 +837,8 @@
       "critical_level": 15,
       "unit": "Kg",
       "created_at": "2026-10-17T13:44:12.694Z",
-      "updated_at": "2026-10-17T13:45:15.434Z"
+      "updated_at": "2026-10-17T13:45:15.434Z",
+      "plu_code": "1001"
     },
     {
       "id": 57,
@@ -851,7 +852,8 @@
       "critical_level": 8,
       "unit": "Kg",
       "created_at": "2026-10-17T13:44:12.694Z",
-      "updated_at": "2026-10-17T13:44:12.694Z"
+      "updated_at": "2026-10-17T13:44:12.694Z",
+      "plu_code": "1002"
     }
   ],
   "stock_movements": [
@@ -1283,6 +1285,15 @@
   ],
   "audit_sessions": [
     {
+      "id": 2,
+      "store_id": 5,
+      "session_name": "Sayım Oturumu - 22.10.2026 19:42",
+      "status": "CANCELLED",
+      "created_at": "2026-10-22T16:42:38.309Z",
+      "items": [],
+      "completed_at": "2026-10-22T16:42:57.037Z"
+    },
+    {
       "id": 1,
       "session_name": "Sayım Oturumu - 17.10.2026 00:10",
       "status": "CANCELLED",
@@ -1404,7 +1415,7 @@
     "product": 58,
     "movement": 18,
     "sale": 9,
-    "session": 2,
+    "session": 3,
     "auditItem": 1,
     "customer": 7,
     "customerTransaction": 6,

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">EsnafCepte</string>
+    <string name="title_activity_main">EsnafCepte</string>
+    <string name="package_name">com.inanora.esnafcepte</string>
+    <string name="custom_url_scheme">com.inanora.esnafcepte</string>
+</resources>

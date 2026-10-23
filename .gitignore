@@ -30,3 +30,11 @@ yarn-error.log*
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Mobile build artifacts
+android/.gradle/
+android/app/build/
+android/build/
+ios/App/Pods/
+ios/App/build/
+ios/App/DerivedData/
