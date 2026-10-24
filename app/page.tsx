@@ -24,6 +24,7 @@ import {
   User as UserIcon,
   Truck,
   Settings,
+  Menu,
 } from 'lucide-react';
 import PosView from '@/components/PosView';
 import AuditView from '@/components/AuditView';
@@ -68,6 +69,7 @@ export default function Home() {
   // Mobile App Dedicated Mode
   const [isMobileApp, setIsMobileApp] = useState<boolean>(false);
   const [showLandingFromMobile, setShowLandingFromMobile] = useState<boolean>(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
 
   // Multi-Store State
   const [stores, setStores] = useState<StoreItem[]>([]);
@@ -296,68 +298,237 @@ export default function Home() {
     );
   }
 
+  // Drawer Navigation Items Definition
+  const drawerNavItems = [
+    { id: 'POS' as const, label: 'Kasa Satış', desc: 'Hızlı barkodlu satış & fiş', icon: CreditCard },
+    { id: 'AUDIT' as const, label: 'Stok Sayımı', desc: 'Kamera barkod okuyucu & vizör', icon: Barcode },
+    { id: 'PRODUCTS' as const, label: 'Ürünler & Stok', desc: 'Katalog, fiyatlar & kritik stok', icon: Package },
+    { id: 'LABELS' as const, label: 'Barkod & Raf Etiketi', desc: 'Fiyat etiketi basımı & şablonlar', icon: Tag },
+    { id: 'CUSTOMERS' as const, label: 'Veresiye Defteri', desc: 'Müşteri hesapları & borç takibi', icon: Users },
+    { id: 'SUPPLIERS' as const, label: 'Toptancılar', desc: 'Alış faturaları & toptancı borçları', icon: Truck },
+    { id: 'MOVEMENTS' as const, label: 'Kasa & Stok Hareketleri', desc: 'Giriş / çıkış hareket günlüğü', icon: ArrowLeftRight },
+    { id: 'REPORTS' as const, label: 'Raporlar & Z Raporu', desc: 'Gün sonu, ciro & kar analizi', icon: BarChart3 },
+    { id: 'SETTINGS' as const, label: 'Dükkan & Donanım Ayarları', desc: 'GİB e-fatura, terazi, POS, yazıcı', icon: Settings },
+  ];
+
   // 2. Esnaf Dükkan & Kasa Yönetim Paneli
   return (
     <div className="min-h-screen flex flex-col bg-slate-100">
-      {/* Top Navbar: Clean & Spacious with Multi-Store Switcher & Trial Badge */}
-      <header className="bg-slate-900 text-white sticky top-0 z-30 shadow-md border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
-          
-          {/* Left: Brand & Store Selector */}
-          <div className="flex items-center gap-3 sm:gap-5">
-            <div className="flex items-center gap-2.5">
-              <button
-                onClick={() => setIsLandingView(true)}
-                className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 hover:scale-105 transition-transform"
-                title="Tanıtım Sayfasına Dön"
-              >
-                <Store className="w-5 h-5" />
-              </button>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-base tracking-wide text-white">EsnafCepte</span>
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30 hidden sm:inline">
-                    Bulut POS
-                  </span>
+      {/* Sol Açılır Menü (Slide-over Drawer) */}
+      {mobileDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex animate-fade-in">
+          {/* Arka Plan Karartması */}
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
+            onClick={() => setMobileDrawerOpen(false)}
+          />
+
+          {/* Sol Panel */}
+          <div className="relative w-80 max-w-[85vw] bg-slate-900 border-r border-slate-800 text-white flex flex-col h-full shadow-2xl z-10 animate-in slide-in-from-left duration-200">
+            {/* Panel Üst Başlığı */}
+            <div className="p-4 sm:p-5 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border-b border-slate-800">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
+                    <Store className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-white leading-tight">
+                      Esnaf<span className="text-emerald-400">Cepte</span>
+                    </h2>
+                    <span className="text-[10px] text-slate-400">Mobil Kasa & Stok</span>
+                  </div>
                 </div>
-                <p className="text-[11px] text-slate-400 hidden lg:block">
-                  Çoklu Şube & Sektörel Stok Yönetimi
+
+                <button
+                  onClick={() => setMobileDrawerOpen(false)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  aria-label="Menüyü Kapat"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Dükkan Bilgisi Kartı */}
+              <div className="p-3 rounded-2xl bg-slate-800/90 border border-slate-700/80">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl p-1 bg-slate-900 rounded-xl border border-slate-700/50">
+                    {activeStore?.sector === 'MARKET' ? '🛒' : activeStore?.sector === 'BUTIK_GIYIM' ? '👗' : activeStore?.sector === 'HIRDAVAT' ? '🔧' : '📚'}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider">
+                      {currentUser ? 'Dükkanınız' : 'Demo Dükkan'}
+                    </div>
+                    <div className="text-xs font-bold text-white truncate">
+                      {activeStore?.name || 'EsnafCepte'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Kullanıcı & Paket Rozeti */}
+                {currentUser && (
+                  <div className="mt-2.5 pt-2.5 border-t border-slate-700/60 flex items-center justify-between text-[11px]">
+                    <div className="flex items-center gap-1.5 text-slate-300">
+                      <UserIcon className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="font-semibold text-white truncate max-w-[120px]">{currentUser.name}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setMobileDrawerOpen(false);
+                        setUpgradeModalOpen(true);
+                      }}
+                      className="px-2 py-0.5 rounded-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-[10px] border border-amber-500/30 transition-all"
+                    >
+                      {remainingTrialDays}g Deneme ⚡
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Navigasyon Menü Listesi */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-1">
+              <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Menü & Modüller
+              </div>
+
+              {drawerNavItems.map(item => {
+                const isActive = activeTab === item.id;
+                const IconComponent = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      setMobileDrawerOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between p-3 rounded-2xl text-xs font-bold transition-all ${
+                      isActive
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-1.5 rounded-xl ${isActive ? 'bg-white/20' : 'bg-slate-800 text-slate-400'}`}>
+                        <IconComponent className="w-4 h-4" />
+                      </div>
+                      <div className="text-left">
+                        <div className="leading-tight">{item.label}</div>
+                        <div className={`text-[10px] font-normal ${isActive ? 'text-emerald-100' : 'text-slate-500'}`}>
+                          {item.desc}
+                        </div>
+                      </div>
+                    </div>
+                    {isActive && <Check className="w-4 h-4 text-white" />}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Menü Altı: Çıkış Butonu & Ekstra İşlemler */}
+            <div className="p-3 border-t border-slate-800 bg-slate-950 space-y-2">
+              <button
+                onClick={() => {
+                  setMobileDrawerOpen(false);
+                  setIsLandingView(true);
+                }}
+                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-medium border border-slate-800 transition-all"
+              >
+                <span className="flex items-center gap-2">
+                  <Globe className="w-3.5 h-3.5 text-teal-400" />
+                  <span>Tanıtım & Fiyatlar Sitesi</span>
+                </span>
+                <span className="text-[10px] text-slate-500">➔</span>
+              </button>
+
+              {currentUser ? (
+                <button
+                  onClick={() => {
+                    setMobileDrawerOpen(false);
+                    handleLogout();
+                  }}
+                  className="w-full flex items-center justify-center gap-2 p-3 bg-red-500/10 hover:bg-red-500/20 active:bg-red-500/30 text-red-400 hover:text-red-300 border border-red-500/30 rounded-2xl font-bold text-xs transition-all"
+                >
+                  <LogOut className="w-4 h-4 text-red-400" />
+                  <span>Güvenli Çıkış Yap</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setMobileDrawerOpen(false);
+                    setLoginModalOpen(true);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold text-xs transition-all shadow-md shadow-emerald-600/30"
+                >
+                  <UserIcon className="w-4 h-4" />
+                  <span>Dükkan Girişi Yap</span>
+                </button>
+              )}
+
+              <div className="pt-1 text-center">
+                <p className="text-[10px] text-slate-400 font-medium">
+                  İnanoraSoft Bulut Perakende Teknolojileri © 2026
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top Navbar: Clean & Spacious with Hamburger Menu */}
+      <header className="bg-slate-900 text-white sticky top-0 z-30 shadow-md border-b border-slate-800">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 flex items-center justify-between">
+          
+          {/* Left: Hamburger Button, Brand & Store Selector */}
+          <div className="flex items-center gap-2 sm:gap-4">
+            {/* Hamburger Menü Butonu (Sol Açılır Menüyü Tetikler) */}
+            <button
+              onClick={() => setMobileDrawerOpen(true)}
+              className="p-2 -ml-1 text-slate-300 hover:text-white hover:bg-slate-800 active:bg-slate-700 rounded-xl transition-all flex items-center justify-center shrink-0 border border-slate-700/60"
+              title="Menüyü Aç"
+              aria-label="Menüyü Aç"
+            >
+              <Menu className="w-5 h-5 text-emerald-400" />
+            </button>
+
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-base tracking-wide text-white">
+                Esnaf<span className="text-emerald-400">Cepte</span>
+              </span>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30 hidden sm:inline">
+                Bulut POS
+              </span>
             </div>
 
             {/* Store Badge or Selector */}
             {currentUser ? (
-              /* Giriş Yapmış Esnaf: Kendi Dükkanı Sabit Rozet Olarak Gösterilir (Menü Açılmaz, İzoledir) */
-              <div className="flex items-center gap-2 bg-slate-800/90 border border-slate-700/80 px-3.5 py-1.5 rounded-xl shadow-inner">
-                <span className="text-sm">
+              /* Giriş Yapmış Esnaf: Kendi Dükkanı Sabit Rozet Olarak Gösterilir */
+              <div className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-700/80 px-2.5 py-1 rounded-xl shadow-inner max-w-[130px] sm:max-w-[200px]">
+                <span className="text-xs">
                   {activeStore?.sector === 'MARKET' ? '🛒' : activeStore?.sector === 'BUTIK_GIYIM' ? '👗' : activeStore?.sector === 'HIRDAVAT' ? '🔧' : '📚'}
                 </span>
-                <div className="text-left">
-                  <div className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider leading-none">Dükkanınız</div>
-                  <div className="text-xs font-bold text-white max-w-[130px] sm:max-w-[200px] truncate leading-tight">
+                <div className="text-left min-w-0">
+                  <div className="text-[8px] text-emerald-400 font-bold uppercase tracking-wider leading-none hidden sm:block">Dükkanınız</div>
+                  <div className="text-xs font-bold text-white truncate leading-tight">
                     {activeStore?.name || 'Dükkanım'}
                   </div>
                 </div>
               </div>
             ) : (
-              /* Giriş Yapmamış Ziyaretçi: Canlı Demo Dükkan Değiştirici (Dışarı tıklandığında otomatik kapanır) */
+              /* Giriş Yapmamış Ziyaretçi: Canlı Demo Dükkan Değiştirici */
               <div className="relative" ref={storeDropdownRef}>
                 <button
                   onClick={() => setStoreDropdownOpen(prev => !prev)}
-                  className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 px-3 py-1.5 rounded-xl transition-all"
+                  className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 px-2.5 py-1 rounded-xl transition-all"
                   title="Demo Sektörü Değiştir"
                 >
-                  <span className="text-sm">
+                  <span className="text-xs">
                     {activeStore?.sector === 'MARKET' ? '🛒' : activeStore?.sector === 'BUTIK_GIYIM' ? '👗' : activeStore?.sector === 'HIRDAVAT' ? '🔧' : '📚'}
                   </span>
-                  <div className="text-left">
-                    <div className="text-[9px] text-amber-400 font-bold uppercase tracking-wider leading-none">Demo Dükkan</div>
-                    <div className="text-xs font-bold text-white max-w-[120px] sm:max-w-[170px] truncate leading-tight">
-                      {activeStore?.name || 'Dükkan Seç'}
-                    </div>
-                  </div>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-0.5" />
+                  <span className="text-xs font-bold text-white max-w-[100px] sm:max-w-[160px] truncate leading-tight">
+                    {activeStore?.name || 'Dükkan Seç'}
+                  </span>
+                  <ChevronDown className="w-3 h-3 text-slate-400 ml-0.5" />
                 </button>
 
                 {/* Store Dropdown Menu */}
@@ -414,41 +585,24 @@ export default function Home() {
             )}
           </div>
 
-          {/* Right Status, Trial Badge & User Info */}
+          {/* Right Status, Trial Badge */}
           <div className="flex items-center gap-2 sm:gap-3 text-xs text-slate-300">
-            {/* Trial Status Badge (Clickable to open Upgrade Modal) */}
+            {/* Trial Status Badge */}
             <button
               onClick={() => setUpgradeModalOpen(true)}
-              className="bg-gradient-to-r from-amber-500/20 to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 border border-amber-500/40 text-amber-300 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all shadow-sm"
+              className="bg-gradient-to-r from-amber-500/20 to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 border border-amber-500/40 text-amber-300 px-2.5 sm:px-3 py-1 rounded-xl font-bold flex items-center gap-1.5 transition-all shadow-sm text-xs"
               title="Paket detaylarını gör veya yükselt"
             >
-              <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400 animate-pulse" />
-              <span className="hidden sm:inline">
-                {currentUser?.plan === 'GROWTH'
-                  ? 'Büyüyen Esnaf Paketi'
-                  : currentUser?.plan === 'ENTERPRISE'
-                  ? 'Kurumsal Paket'
-                  : `14 Gün Deneme (${remainingTrialDays} Gün Kaldı)`}
-              </span>
-              <span className="sm:hidden">
+              <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              <span>
                 {remainingTrialDays}g Deneme
               </span>
             </button>
 
-            {/* LinkedIn Brochure Studio */}
-            <Link
-              href="/brosur"
-              className="hidden md:flex px-3 py-1.5 bg-gradient-to-r from-emerald-600/30 to-teal-600/30 hover:from-emerald-600/50 hover:to-teal-600/50 border border-emerald-500/40 text-emerald-300 rounded-xl font-bold items-center gap-1.5 transition-all text-xs"
-              title="LinkedIn tanıtım broşürlerini inceleyin"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              Broşür Kiti
-            </Link>
-
-            {/* Quick Settings Button */}
+            {/* Quick Settings Button (Masaüstü) */}
             <button
               onClick={() => setActiveTab('SETTINGS')}
-              className={`p-1.5 rounded-xl border transition-all ${
+              className={`p-1.5 rounded-xl border transition-all hidden sm:flex ${
                 activeTab === 'SETTINGS'
                   ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
                   : 'bg-slate-800 text-slate-300 hover:text-white border-slate-700'
@@ -458,41 +612,7 @@ export default function Home() {
               <Settings className="w-4 h-4" />
             </button>
 
-            {/* Back to Landing Site */}
-            <button
-              onClick={() => setIsLandingView(true)}
-              className="hidden lg:flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-1.5 rounded-xl border border-slate-700 text-xs font-semibold transition-all"
-              title="Tanıtım ve Fiyatlar Sayfasını Görüntüle"
-            >
-              <Globe className="w-3.5 h-3.5 text-teal-400" />
-              <span>Tanıtım Sitesi</span>
-            </button>
-
-            {/* User Account / Logout */}
-            {currentUser ? (
-              <div className="flex items-center gap-1 bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-700">
-                <UserIcon className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="font-bold text-xs text-white max-w-[100px] truncate">
-                  {currentUser.name.split(' ')[0]}
-                </span>
-                <button
-                  onClick={handleLogout}
-                  className="ml-1 text-slate-400 hover:text-red-400 p-0.5"
-                  title="Çıkış Yap"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setLoginModalOpen(true)}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition-colors"
-              >
-                Giriş Yap
-              </button>
-            )}
-
-            {/* Clock */}
+            {/* Clock (Geniş Ekran) */}
             <div className="hidden xl:flex items-center gap-1.5 font-mono bg-slate-800/90 px-2.5 py-1.5 rounded-xl border border-slate-700/80">
               <Clock className="w-3.5 h-3.5 text-emerald-400" />
               <span className="font-semibold text-xs">{time || '12:00:00'}</span>
@@ -502,8 +622,8 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main Content Area (extra bottom padding for bottom dock) */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 pb-28 sm:pb-32">
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-2 sm:p-6 pb-6 md:pb-28">
         {activeTab === 'POS' && (
           <PosView
             storeId={activeStore?.id || 1}
@@ -561,8 +681,8 @@ export default function Home() {
         )}
       </main>
 
-      {/* Bottom Sticky Dock Navigation: Clean, Floating & Mobile Friendly */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 shadow-2xl py-2 px-2 sm:px-6">
+      {/* Bottom Sticky Dock Navigation (Masaüstü Ekranlarda Görünür, Mobilde Sol Menü Kullanılır) */}
+      <nav className="hidden md:block fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 shadow-2xl py-2 px-2 sm:px-6">
         <div className="max-w-5xl mx-auto flex items-center justify-around gap-1 sm:gap-2">
           
           {/* 1. Hızlı Satış (Kasa) */}
