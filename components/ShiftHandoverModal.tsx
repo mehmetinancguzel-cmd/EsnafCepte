@@ -40,6 +40,15 @@ export default function ShiftHandoverModal({
     }
   }, [isOpen, storeId]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   const loadShiftData = async () => {
     setLoading(true);
     try {
@@ -103,8 +112,14 @@ _Her iki personel tarafından sayılarak teslim edilmiştir._`;
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
-      <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+    <div
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 my-auto max-h-[92vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-700 to-indigo-800 px-5 py-4 text-white flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -263,6 +278,14 @@ _Her iki personel tarafından sayılarak teslim edilmiştir._`;
                   className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5"
                 >
                   <Printer className="w-4 h-4" /> Yazdır
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-3 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <X className="w-4 h-4" /> Kapat
                 </button>
               </div>
             </>

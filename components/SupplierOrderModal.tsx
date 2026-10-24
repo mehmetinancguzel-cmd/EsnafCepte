@@ -42,6 +42,15 @@ export default function SupplierOrderModal({
     }
   }, [isOpen, storeId]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   const loadCriticalProducts = async () => {
     setLoading(true);
     try {
@@ -143,8 +152,14 @@ _EsnafCepte • İnanoraSoft ile gönderildi._`;
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full overflow-hidden flex flex-col max-h-[92vh]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm animate-fade-in overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full overflow-hidden flex flex-col max-h-[92vh] my-auto"
+        onClick={e => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="bg-gradient-to-r from-emerald-800 to-teal-900 p-6 text-white relative">
           <button

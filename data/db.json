@@ -7,12 +7,12 @@
       "variant": "L / Siyah",
       "cost_price": 75,
       "sale_price": 140,
-      "stock_quantity": 25,
+      "stock_quantity": 24,
       "critical_level": 6,
       "unit": "Adet",
       "id": 1,
       "created_at": "2026-10-16T21:05:18.740Z",
-      "updated_at": "2026-10-16T21:21:41.783Z",
+      "updated_at": "2026-10-24T13:39:23.168Z",
       "store_id": 1
     },
     {
@@ -22,12 +22,12 @@
       "variant": "M / Gri",
       "cost_price": 75,
       "sale_price": 140,
-      "stock_quantity": 14,
+      "stock_quantity": 13,
       "critical_level": 5,
       "unit": "Adet",
       "id": 2,
       "created_at": "2026-10-16T21:05:18.740Z",
-      "updated_at": "2026-10-16T21:05:18.740Z",
+      "updated_at": "2026-10-24T13:39:23.168Z",
       "store_id": 1
     },
     {
@@ -1043,9 +1043,60 @@
       "quantity": 1,
       "note": "İade (NAKIT): 1 Kg - Test İade",
       "created_at": "2026-10-17T13:45:15.434Z"
+    },
+    {
+      "id": 18,
+      "store_id": 1,
+      "product_id": 2,
+      "product_name": "Pierre Cardin Dikişsiz Modal Boxer",
+      "barcode": "8690456128791",
+      "type": "SATIS",
+      "quantity": -1,
+      "note": "Satış: 1 Adet",
+      "created_at": "2026-10-24T13:39:23.168Z"
+    },
+    {
+      "id": 19,
+      "store_id": 1,
+      "product_id": 1,
+      "product_name": "Pierre Cardin Dikişsiz Modal Boxer",
+      "barcode": "8690456128790",
+      "type": "SATIS",
+      "quantity": -1,
+      "note": "Satış: 1 Adet",
+      "created_at": "2026-10-24T13:39:23.168Z"
     }
   ],
   "sales": [
+    {
+      "id": 9,
+      "store_id": 1,
+      "sale_code": "SLS-163168",
+      "total_amount": 280,
+      "discount": 0,
+      "payment_method": "NAKIT",
+      "items": [
+        {
+          "product_id": 2,
+          "barcode": "8690456128791",
+          "name": "Pierre Cardin Dikişsiz Modal Boxer",
+          "variant": "M / Gri",
+          "unit_price": 140,
+          "quantity": 1,
+          "total_price": 140
+        },
+        {
+          "product_id": 1,
+          "barcode": "8690456128790",
+          "name": "Pierre Cardin Dikişsiz Modal Boxer",
+          "variant": "L / Siyah",
+          "unit_price": 140,
+          "quantity": 1,
+          "total_price": 140
+        }
+      ],
+      "created_at": "2026-10-24T13:39:23.168Z"
+    },
     {
       "id": 8,
       "store_id": 5,
@@ -1285,6 +1336,15 @@
   ],
   "audit_sessions": [
     {
+      "id": 3,
+      "store_id": 1,
+      "session_name": "Sayım Oturumu - 24.10.2026 13:37",
+      "status": "CANCELLED",
+      "created_at": "2026-10-24T13:37:09.636Z",
+      "items": [],
+      "completed_at": "2026-10-24T13:37:16.108Z"
+    },
+    {
       "id": 2,
       "store_id": 5,
       "session_name": "Sayım Oturumu - 22.10.2026 19:42",
@@ -1413,9 +1473,9 @@
   ],
   "nextId": {
     "product": 58,
-    "movement": 18,
-    "sale": 9,
-    "session": 3,
+    "movement": 20,
+    "sale": 10,
+    "session": 4,
     "auditItem": 1,
     "customer": 7,
     "customerTransaction": 6,
@@ -1478,7 +1538,8 @@
       "password_hash": "123456",
       "plan": "STARTER",
       "trial_ends_at": "2026-10-31T09:53:12.299Z",
-      "created_at": "2026-10-17T09:53:12.299Z"
+      "created_at": "2026-10-17T09:53:12.299Z",
+      "email_verified": true
     },
     {
       "id": 2,
