@@ -37,10 +37,12 @@ import SettingsView from '@/components/SettingsView';
 import LandingView from '@/components/LandingView';
 import RegisterModal from '@/components/RegisterModal';
 import LoginModal from '@/components/LoginModal';
+import MobileAuthScreen from '@/components/MobileAuthScreen';
 import UpgradePlanModal from '@/components/UpgradePlanModal';
 import FeatureLockedModal from '@/components/FeatureLockedModal';
-import { StoreSector, User } from '@/lib/db';
+import { StoreSector, User, Store as DbStore } from '@/lib/db';
 import { LockedFeature } from '@/lib/plans';
+import { Capacitor } from '@capacitor/core';
 
 interface StoreItem {
   id: number;
@@ -62,6 +64,10 @@ export default function Home() {
   const [upgradeModalOpen, setUpgradeModalOpen] = useState<boolean>(false);
   const [lockedFeature, setLockedFeature] = useState<LockedFeature | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // Mobile App Dedicated Mode
+  const [isMobileApp, setIsMobileApp] = useState<boolean>(false);
+  const [showLandingFromMobile, setShowLandingFromMobile] = useState<boolean>(false);
 
   // Multi-Store State
   const [stores, setStores] = useState<StoreItem[]>([]);
@@ -97,6 +103,20 @@ export default function Home() {
 
   useEffect(() => {
     fetchStores();
+    // Check mobile app native environment or query param
+    try {
+      const isNative = Capacitor.isNativePlatform();
+      const isAppQuery = typeof window !== 'undefined' && (
+        window.location.search.includes('app=true') ||
+        window.location.search.includes('mobile=true')
+      );
+      if (isNative || isAppQuery) {
+        setIsMobileApp(true);
+      }
+    } catch {
+      // ignore
+    }
+
     // Check localStorage for saved session
     try {
       const savedUser = localStorage.getItem('esnafcepte_user');
@@ -126,7 +146,7 @@ export default function Home() {
     }
   };
 
-  const handleLoginSuccess = (user: User, store: StoreItem) => {
+  const handleLoginSuccess = (user: User, store: StoreItem | DbStore) => {
     setCurrentUser(user);
     try {
       localStorage.setItem('esnafcepte_user', JSON.stringify(user));
@@ -136,7 +156,7 @@ export default function Home() {
     setIsLandingView(false);
   };
 
-  const handleRegisterSuccess = (user: User, store: StoreItem) => {
+  const handleRegisterSuccess = (user: User, store: StoreItem | DbStore) => {
     setCurrentUser(user);
     try {
       localStorage.setItem('esnafcepte_user', JSON.stringify(user));
@@ -211,10 +231,39 @@ export default function Home() {
     remainingTrialDays = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   }
 
+  // 0. Mobil Uygulama Modu (Native Android/iOS veya ?app=true)
+  // Mobil uygulamada tanıtım sayfaları gizlenir, doğrudan güvenli giriş ve 2FA ekranı açılır.
+  if (isMobileApp && !currentUser && !showLandingFromMobile) {
+    return (
+      <MobileAuthScreen
+        onSuccess={handleLoginSuccess}
+        onOpenLandingSite={() => {
+          if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
+            window.open('https://esnafcepte.inanora.com', '_system');
+          } else {
+            setShowLandingFromMobile(true);
+          }
+        }}
+      />
+    );
+  }
+
   // 1. Ziyaretçi Tanıtım Sitesini İncelemek İstiyorsa (Landing Page)
   if (isLandingView) {
     return (
       <>
+        {showLandingFromMobile && (
+          <div className="fixed top-4 left-4 z-50">
+            <button
+              onClick={() => setShowLandingFromMobile(false)}
+              className="bg-slate-900/90 backdrop-blur hover:bg-slate-900 text-white font-bold text-xs px-4 py-2 rounded-full shadow-lg border border-slate-700 flex items-center gap-2 transition-all"
+            >
+              <span>←</span>
+              <span>Mobil Giriş Ekranına Dön</span>
+            </button>
+          </div>
+        )}
+
         <LandingView
           onOpenRegister={() => setRegisterModalOpen(true)}
           onOpenLogin={() => setLoginModalOpen(true)}

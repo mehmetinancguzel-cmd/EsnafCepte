@@ -122,6 +122,9 @@ export interface User {
   password_hash: string;
   plan: UserPlan;
   trial_ends_at: string;
+  email_verified?: boolean;
+  phone_verified?: boolean;
+  two_factor_enabled?: boolean;
   created_at: string;
 }
 
@@ -754,6 +757,21 @@ export function getUserById(id: number): { user: Omit<User, 'password_hash'>; st
   const store = db.stores.find(s => s.id === user.store_id) || db.stores[0];
   const { password_hash, ...safeUser } = user;
   return { user: safeUser, store };
+}
+
+export function getUserByEmail(email: string): User | undefined {
+  const db = loadDb();
+  const normalized = email.trim().toLowerCase();
+  return db.users.find(u => u.email.toLowerCase() === normalized);
+}
+
+export function setUserEmailVerified(userId: number): boolean {
+  const db = loadDb();
+  const user = db.users.find(u => u.id === userId);
+  if (!user) return false;
+  user.email_verified = true;
+  saveDb(db);
+  return true;
 }
 
 export function updateUserPlan(userId: number, plan: UserPlan): { user: Omit<User, 'password_hash'>; store: Store } {

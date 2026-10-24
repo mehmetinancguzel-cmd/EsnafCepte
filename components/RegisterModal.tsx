@@ -11,7 +11,7 @@ interface RegisterModalProps {
 }
 
 export default function RegisterModal({ isOpen, onClose, onSuccess, onOpenLogin }: RegisterModalProps) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,6 +26,13 @@ export default function RegisterModal({ isOpen, onClose, onSuccess, onOpenLogin 
 
   const [sector, setSector] = useState<StoreSector>('MARKET');
   const [seedTemplate, setSeedTemplate] = useState(true);
+
+  // OTP State
+  const [otpCode, setOtpCode] = useState('');
+  const [maskedEmail, setMaskedEmail] = useState('');
+  const [devCode, setDevCode] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   if (!isOpen) return null;
 
@@ -78,12 +85,74 @@ export default function RegisterModal({ isOpen, onClose, onSuccess, onOpenLogin 
         throw new Error(data.error || 'Kayıt tamamlanamadı.');
       }
 
-      onSuccess(data.user, data.store);
-      onClose();
+      if (data.requireVerification) {
+        setMaskedEmail(data.maskedEmail || email);
+        setDevCode(data.devCode || null);
+        setStep(4);
+      } else {
+        onSuccess(data.user, data.store);
+        onClose();
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Kayıt başarısız oldu.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otpCode.trim().length !== 6) {
+      setError('Lütfen 6 haneli doğrulama kodunu eksiksiz giriniz.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/auth/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          code: otpCode.trim(),
+          purpose: 'REGISTER_VERIFICATION',
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Doğrulama kodu geçersiz.');
+      }
+
+      onSuccess(data.user, data.store);
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Doğrulama hatası.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setResending(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/auth/resend-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, purpose: 'REGISTER_VERIFICATION', channel: 'EMAIL' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Kod gönderilemedi.');
+      if (data.devCode) setDevCode(data.devCode);
+      setResendSuccess(true);
+      setTimeout(() => setResendSuccess(false), 4000);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Kod tekrar gönderilemedi.');
+    } finally {
+      setResending(false);
     }
   };
 
@@ -145,15 +214,20 @@ export default function RegisterModal({ isOpen, onClose, onSuccess, onOpenLogin 
               <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${step >= 1 ? 'bg-white text-emerald-700' : 'bg-emerald-800 text-white'}`}>1</span>
               Yetkili
             </div>
-            <div className="w-8 h-0.5 bg-emerald-400/40" />
+            <div className="w-6 h-0.5 bg-emerald-400/40" />
             <div className={`flex items-center gap-2 text-xs font-bold ${step >= 2 ? 'text-white' : 'text-emerald-300/60'}`}>
               <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${step >= 2 ? 'bg-white text-emerald-700' : 'bg-emerald-800 text-white'}`}>2</span>
               Dükkan
             </div>
-            <div className="w-8 h-0.5 bg-emerald-400/40" />
-            <div className={`flex items-center gap-2 text-xs font-bold ${step === 3 ? 'text-white' : 'text-emerald-300/60'}`}>
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${step === 3 ? 'bg-white text-emerald-700' : 'bg-emerald-800 text-white'}`}>3</span>
+            <div className="w-6 h-0.5 bg-emerald-400/40" />
+            <div className={`flex items-center gap-2 text-xs font-bold ${step >= 3 ? 'text-white' : 'text-emerald-300/60'}`}>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${step >= 3 ? 'bg-white text-emerald-700' : 'bg-emerald-800 text-white'}`}>3</span>
               Sektör
+            </div>
+            <div className="w-6 h-0.5 bg-emerald-400/40" />
+            <div className={`flex items-center gap-2 text-xs font-bold ${step === 4 ? 'text-white' : 'text-emerald-300/60'}`}>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${step === 4 ? 'bg-white text-emerald-700' : 'bg-emerald-800 text-white'}`}>4</span>
+              Doğrulama
             </div>
           </div>
         </div>
@@ -358,6 +432,81 @@ export default function RegisterModal({ isOpen, onClose, onSuccess, onOpenLogin 
                 </button>
               </div>
             </div>
+          )}
+
+          {/* STEP 4: 6 Haneli Aktivasyon Doğrulama Kodu */}
+          {step === 4 && (
+            <form onSubmit={handleVerifyOtp} className="space-y-4">
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-900 leading-relaxed">
+                <div className="font-bold flex items-center gap-1.5 text-emerald-800 text-sm mb-1.5">
+                  <span>✉️</span>
+                  <span>E-Posta Doğrulama Kodu</span>
+                </div>
+                <span>
+                  Hesabınızı ve dükkanınızı aktifleştirmek için <strong>{maskedEmail}</strong> adresinize gönderilen 6 haneli doğrulama kodunu giriniz.
+                </span>
+              </div>
+
+              {resendSuccess && (
+                <div className="p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl text-xs flex items-center gap-2">
+                  <span>✅</span>
+                  <span>Yeni doğrulama kodu başarıyla iletildi.</span>
+                </div>
+              )}
+
+              {devCode && (
+                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center justify-between">
+                  <span>🛠️ Test Doğrulama Kodu:</span>
+                  <span className="font-mono font-black text-amber-950 text-sm tracking-widest bg-amber-200/70 px-2 py-0.5 rounded">
+                    {devCode}
+                  </span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  6 Haneli Güvenlik Kodu
+                </label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  required
+                  autoFocus
+                  placeholder="000000"
+                  value={otpCode}
+                  onChange={e => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                  className="w-full text-center tracking-[0.5em] font-mono text-2xl font-black py-3 rounded-2xl border-2 border-slate-300 focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-900"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setStep(3)}
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 px-4 rounded-xl transition-all"
+                >
+                  ⬅ Geri
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || otpCode.length !== 6}
+                  className="flex-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black py-3.5 px-6 rounded-xl shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                  {loading ? 'Doğrulanıyor...' : 'Dükkanımı Aktifleştir'}
+                </button>
+              </div>
+
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={resending}
+                  className="text-xs text-emerald-700 hover:underline font-bold disabled:opacity-50"
+                >
+                  {resending ? 'Kod Gönderiliyor...' : 'Doğrulama Kodunu Tekrar Gönder'}
+                </button>
+              </div>
+            </form>
           )}
         </div>
 

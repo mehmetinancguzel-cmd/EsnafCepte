@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { registerStoreAndUser, StoreSector } from '@/lib/db';
+import { saveOtpCode, sendOtpNotification, maskEmail } from '@/lib/otp';
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,23 +35,24 @@ export async function POST(request: NextRequest) {
       seedTemplate: seedTemplate !== false,
     });
 
-    const response = NextResponse.json({
+    // Generate 6-Digit Email Verification Code (Expires in 15 mins)
+    const { code } = saveOtpCode(result.user.email, 'REGISTER_VERIFICATION', 'EMAIL', 15);
+
+    await sendOtpNotification({
+      channel: 'EMAIL',
+      recipient: result.user.email,
+      code,
+      purpose: 'REGISTER_VERIFICATION',
+    });
+
+    return NextResponse.json({
       success: true,
-      message: 'Kayıt başarılı! 14 günlük ücretsiz deneme süreniz başlatıldı.',
-      user: result.user,
-      store: result.store,
-      token: result.token,
+      requireVerification: true,
+      email: result.user.email,
+      maskedEmail: maskEmail(result.user.email),
+      devCode: code, // Convenient for instant testing
+      message: 'Hesabınız başarıyla oluşturuldu! Lütfen e-postanıza gönderilen 6 haneli doğrulama kodunu giriniz.',
     });
-
-    response.cookies.set('esnafcepte_token', result.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 72 * 3600,
-    });
-
-    return response;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Kayıt sırasında bir hata oluştu.';
     return NextResponse.json({ error: message }, { status: 400 });

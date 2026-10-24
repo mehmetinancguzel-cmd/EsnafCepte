@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateUser } from '@/lib/db';
+import { loadDb, getStores } from '@/lib/db';
+import { verifyPassword } from '@/lib/auth';
+import { saveOtpCode, sendOtpNotification, maskEmail, maskPhone } from '@/lib/otp';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { email, password, skip2FA } = body;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -13,25 +15,70 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = authenticateUser(email, password);
+    const db = loadDb();
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = db.users.find(u => u.email.toLowerCase() === normalizedEmail);
 
-    const response = NextResponse.json({
+    if (!user || !verifyPassword(password, user.password_hash)) {
+      return NextResponse.json(
+        { error: 'E-posta veya şifre hatalı. Lütfen kontrol ediniz.' },
+        { status: 401 }
+      );
+    }
+
+    // Optional quick demo bypass if explicitly requested
+    if (skip2FA) {
+      const stores = getStores();
+      const store = stores.find(s => s.id === user.store_id) || stores[0];
+      const { password_hash, ...safeUser } = user;
+      
+      const { generateSessionToken } = await import('@/lib/auth');
+      const token = generateSessionToken({
+        userId: safeUser.id,
+        storeId: safeUser.store_id,
+        role: 'PATRON',
+        email: safeUser.email,
+        name: safeUser.name,
+      });
+
+      const response = NextResponse.json({
+        success: true,
+        user: safeUser,
+        store,
+        token,
+      });
+
+      response.cookies.set('esnafcepte_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 72 * 3600,
+      });
+
+      return response;
+    }
+
+    // 2-Step Security Verification (2FA / OTP Code)
+    const { code } = saveOtpCode(user.email, 'LOGIN_2FA', 'EMAIL', 10);
+
+    await sendOtpNotification({
+      channel: 'EMAIL',
+      recipient: user.email,
+      code,
+      purpose: 'LOGIN_2FA',
+    });
+
+    return NextResponse.json({
       success: true,
-      message: 'Giriş başarılı!',
-      user: result.user,
-      store: result.store,
-      token: result.token,
+      require2FA: true,
+      email: user.email,
+      maskedEmail: maskEmail(user.email),
+      maskedPhone: maskPhone(user.phone),
+      channel: 'EMAIL', // Prepared for SMS switch
+      devCode: code, // Convenient for instant testing
+      message: 'Güvenliğiniz için 6 haneli giriş kodunuz e-posta adresinize (SMS altyapısı hazır) gönderildi.',
     });
-
-    response.cookies.set('esnafcepte_token', result.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 72 * 3600, // 3 days
-    });
-
-    return response;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Giriş yapılamadı.';
     return NextResponse.json({ error: message }, { status: 401 });
