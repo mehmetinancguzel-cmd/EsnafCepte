@@ -8,10 +8,13 @@ export interface OtpRecord {
   channel: OtpChannel;
   recipient: string; // email or phone
   purpose: 'REGISTER_VERIFICATION' | 'LOGIN_2FA' | 'PASSWORD_RESET';
+  attempts: number;
 }
 
 // In-memory / fast cache for temporary OTP verification codes
 const otpStore = new Map<string, OtpRecord>();
+// Temporary blocklist for identifiers with too many failed attempts
+const lockStore = new Map<string, number>();
 
 /**
  * Generate a cryptographically secure 6-digit numeric OTP code
@@ -41,13 +44,14 @@ export function saveOtpCode(
     channel,
     recipient: cleanId,
     purpose,
+    attempts: 0,
   });
 
   return { code, expiresAt };
 }
 
 /**
- * Verify an OTP code
+ * Verify an OTP code with brute-force rate limiting (Max 5 attempts)
  */
 export function verifyOtpCode(
   identifier: string,
@@ -55,6 +59,17 @@ export function verifyOtpCode(
   enteredCode: string
 ): { valid: boolean; message?: string } {
   const cleanId = identifier.trim().toLowerCase();
+  const lockKey = `${cleanId}_locked`;
+  const lockedUntil = lockStore.get(lockKey);
+
+  if (lockedUntil && Date.now() < lockedUntil) {
+    const remainingMins = Math.ceil((lockedUntil - Date.now()) / 60000);
+    return {
+      valid: false,
+      message: `Çok fazla hatalı kod denendi. Hesabınız ${remainingMins} dakika süreyle geçici olarak kilitlendi.`,
+    };
+  }
+
   const key = `${cleanId}_${purpose}`;
   const record = otpStore.get(key);
 
@@ -67,12 +82,28 @@ export function verifyOtpCode(
     return { valid: false, message: 'Doğrulama kodunun 10 dakikalık süresi doldu. Lütfen yeni kod talep ediniz.' };
   }
 
+  // Increment attempts
+  record.attempts = (record.attempts || 0) + 1;
+
   if (record.code !== enteredCode.trim()) {
-    return { valid: false, message: 'Girdiğiniz 6 haneli kod hatalı. Lütfen kontrol ediniz.' };
+    const remaining = 5 - record.attempts;
+    if (remaining <= 0) {
+      otpStore.delete(key);
+      lockStore.set(lockKey, Date.now() + 15 * 60 * 1000); // 15 min lock
+      return {
+        valid: false,
+        message: '5 kez hatalı kod girildi. Güvenliğiniz için bu işlem 15 dakika süreyle kilitlendi.',
+      };
+    }
+    return {
+      valid: false,
+      message: `Girdiğiniz 6 haneli kod hatalı. Kalan deneme hakkı: ${remaining}`,
+    };
   }
 
   // Remove upon successful verification (one-time use)
   otpStore.delete(key);
+  lockStore.delete(lockKey);
   return { valid: true };
 }
 

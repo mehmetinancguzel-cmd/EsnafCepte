@@ -179,16 +179,27 @@ export default function MobileAuthScreen({ onSuccess, onOpenLandingSite }: Mobil
   const handleQuickDemo = (demoEmail: string, demoPass: string) => {
     setEmail(demoEmail);
     setPassword(demoPass);
+    setLoading(true);
     fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: demoEmail, password: demoPass, skip2FA: true }),
+      body: JSON.stringify({ email: demoEmail, password: demoPass }),
     })
       .then(r => r.json())
       .then(d => {
-        if (d.success) onSuccess(d.user, d.store);
+        if (d.require2FA) {
+          setOtpPurpose('LOGIN_2FA');
+          setMaskedContact(d.maskedEmail || demoEmail);
+          setStep('OTP');
+          setSuccessToast('6 haneli güvenlik kodu e-posta adresinize iletildi.');
+        } else if (d.success) {
+          onSuccess(d.user, d.store);
+        } else if (d.error) {
+          setError(d.error);
+        }
       })
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setLoading(false));
   };
 
   return (

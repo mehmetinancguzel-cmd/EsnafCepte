@@ -6,7 +6,7 @@ import { saveOtpCode, sendOtpNotification, maskEmail, maskPhone } from '@/lib/ot
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, skip2FA } = body;
+    const { email, password } = body;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -26,39 +26,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Optional quick demo bypass if explicitly requested
-    if (skip2FA) {
-      const stores = getStores();
-      const store = stores.find(s => s.id === user.store_id) || stores[0];
-      const { password_hash, ...safeUser } = user;
-      
-      const { generateSessionToken } = await import('@/lib/auth');
-      const token = generateSessionToken({
-        userId: safeUser.id,
-        storeId: safeUser.store_id,
-        role: 'PATRON',
-        email: safeUser.email,
-        name: safeUser.name,
-      });
-
-      const response = NextResponse.json({
-        success: true,
-        user: safeUser,
-        store,
-        token,
-      });
-
-      response.cookies.set('esnafcepte_token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 72 * 3600,
-      });
-
-      return response;
-    }
-
     // 2-Step Security Verification (2FA / OTP Code)
     const { code } = saveOtpCode(user.email, 'LOGIN_2FA', 'EMAIL', 10);
 
@@ -75,8 +42,7 @@ export async function POST(request: NextRequest) {
       email: user.email,
       maskedEmail: maskEmail(user.email),
       maskedPhone: maskPhone(user.phone),
-      channel: 'EMAIL', // Prepared for SMS switch
-      devCode: code, // Convenient for instant testing
+      channel: 'EMAIL',
       message: 'Güvenliğiniz için 6 haneli giriş kodunuz e-posta adresinize (SMS altyapısı hazır) gönderildi.',
     });
   } catch (err: unknown) {

@@ -9,7 +9,8 @@ export interface TokenPayload {
   exp: number;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'inanora_esnafcepte_secure_session_secret_2026';
+const DEFAULT_RUNTIME_SECRET = crypto.randomBytes(32).toString('hex');
+const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_RUNTIME_SECRET;
 
 /**
  * PBKDF2 Password Hashing with Salt

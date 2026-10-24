@@ -60,35 +60,22 @@ export default function RolePinModal({
     setVerifying(true);
     setError(null);
     try {
-      const res = await fetch(`/api/stores/settings?storeId=${storeId}`);
-      if (res.ok) {
-        const data = await res.json();
-        const expectedPin = data.patron_pin || '1234';
-        if (enteredPin === expectedPin) {
-          onSuccess();
-          onClose();
-        } else {
-          setError('Hatalı PIN Kodu! Lütfen tekrar deneyin.');
-          setPin('');
-        }
-      } else {
-        // Fallback default
-        if (enteredPin === '1234') {
-          onSuccess();
-          onClose();
-        } else {
-          setError('Hatalı PIN Kodu! (Varsayılan: 1234)');
-          setPin('');
-        }
-      }
-    } catch {
-      if (enteredPin === '1234') {
+      const res = await fetch('/api/stores/verify-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storeId, pin: enteredPin }),
+      });
+      const data = await res.json();
+      if (res.ok && data.valid) {
         onSuccess();
         onClose();
       } else {
-        setError('Hatalı PIN Kodu!');
+        setError(data.error || 'Hatalı PIN Kodu! Lütfen tekrar deneyin.');
         setPin('');
       }
+    } catch {
+      setError('Bağlantı hatası, PIN doğrulanamadı.');
+      setPin('');
     } finally {
       setVerifying(false);
     }

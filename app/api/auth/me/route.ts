@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserById, updateUserPlan, UserPlan } from '@/lib/db';
+import { verifySessionToken } from '@/lib/auth';
+
+function getAuthenticatedUser(request: NextRequest) {
+  const tokenCookie = request.cookies.get('esnafcepte_token')?.value;
+  const authHeader = request.headers.get('authorization');
+  const token = tokenCookie || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null);
+  return token ? verifySessionToken(token) : null;
+}
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = getAuthenticatedUser(request);
     const { searchParams } = new URL(request.url);
-    const userId = parseInt(searchParams.get('userId') || '1');
+    const requestedUserId = searchParams.get('userId');
+    const targetUserId = auth ? auth.userId : requestedUserId ? parseInt(requestedUserId) : 1;
 
-    const result = getUserById(userId);
+    const result = getUserById(targetUserId);
     if (!result) {
       return NextResponse.json({ error: 'Kullanıcı bulunamadı' }, { status: 404 });
     }
@@ -24,10 +34,13 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const auth = getAuthenticatedUser(request);
     const body = await request.json();
     const { userId, plan } = body;
 
-    if (!userId || !plan) {
+    const targetUserId = auth ? auth.userId : Number(userId);
+
+    if (!targetUserId || !plan) {
       return NextResponse.json({ error: 'userId ve plan zorunludur' }, { status: 400 });
     }
 
@@ -36,7 +49,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Geçersiz plan seçimi' }, { status: 400 });
     }
 
-    const result = updateUserPlan(Number(userId), plan);
+    const result = updateUserPlan(targetUserId, plan);
     return NextResponse.json({
       success: true,
       message: `Paketiniz ${plan} olarak güncellendi!`,

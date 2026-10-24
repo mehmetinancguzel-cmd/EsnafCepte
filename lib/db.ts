@@ -581,12 +581,26 @@ export function loadDb(): DatabaseSchema {
   }
 }
 
+let isWriting = false;
+const writeQueue: Array<() => void> = [];
+
 export function saveDb(data: DatabaseSchema) {
   ensureDataDir();
   cachedData = data;
-  const tempFile = `${dbFile}.tmp`;
-  fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf-8');
-  fs.renameSync(tempFile, dbFile);
+  const tempFile = `${dbFile}.${Date.now()}.${Math.random().toString(36).slice(2, 6)}.tmp`;
+  try {
+    fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf-8');
+    try {
+      fs.renameSync(tempFile, dbFile);
+    } catch {
+      // Windows file lock fallback
+      fs.copyFileSync(tempFile, dbFile);
+      try { fs.unlinkSync(tempFile); } catch {}
+    }
+  } catch (err) {
+    console.error('Veritabanı kaydetme hatası:', err);
+    try { if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile); } catch {}
+  }
 }
 
 // ================= STORES METHODS =================
@@ -984,10 +998,15 @@ export function createSale(params: {
   customer_id?: number;
   items: { barcode: string; quantity: number }[];
 }): Sale {
+  if (!params.items || !Array.isArray(params.items) || params.items.length === 0) {
+    throw new Error('Sepette en az bir ürün bulunmalıdır.');
+  }
+
   const db = loadDb();
   const now = new Date().toISOString();
   const targetStoreId = params.store_id || 1;
-  const discount = params.discount || 0;
+  const rawDiscount = Number(params.discount || 0);
+  const discount = Number.isFinite(rawDiscount) && rawDiscount > 0 ? rawDiscount : 0;
 
   let customer: Customer | undefined;
   if (params.payment_method === 'VERESIYE') {
@@ -1004,6 +1023,11 @@ export function createSale(params: {
   let totalAmount = 0;
 
   for (const item of params.items) {
+    const qty = Number(item.quantity);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      throw new Error(`Geçersiz ürün adedi (${item.quantity}). Miktar sıfırdan büyük olmalıdır.`);
+    }
+
     const product = db.products.find(
       p => p.store_id === targetStoreId && p.barcode === item.barcode.trim()
     );
@@ -1011,7 +1035,7 @@ export function createSale(params: {
       throw new Error(`Barkod bulunamadı: ${item.barcode}`);
     }
 
-    const itemTotal = product.sale_price * item.quantity;
+    const itemTotal = product.sale_price * qty;
     totalAmount += itemTotal;
 
     saleItems.push({
@@ -1020,12 +1044,12 @@ export function createSale(params: {
       name: product.name,
       variant: product.variant,
       unit_price: product.sale_price,
-      quantity: item.quantity,
+      quantity: qty,
       total_price: itemTotal,
     });
 
     // Decrease stock
-    product.stock_quantity -= item.quantity;
+    product.stock_quantity -= qty;
     product.updated_at = now;
 
     // Movement log
@@ -1036,8 +1060,8 @@ export function createSale(params: {
       product_name: product.name,
       barcode: product.barcode,
       type: 'SATIS',
-      quantity: -item.quantity,
-      note: `Satış: ${item.quantity} ${product.unit}`,
+      quantity: -qty,
+      note: `Satış: ${qty} ${product.unit}`,
       created_at: now,
     });
   }
@@ -1097,6 +1121,16 @@ export function createRefund(params: CreateRefundParams): {
   refundCode: string;
   expense?: Expense;
 } {
+  const qty = Number(params.quantity);
+  if (!Number.isFinite(qty) || qty <= 0) {
+    throw new Error('İade adedi sıfırdan büyük geçerli bir sayı olmalıdır.');
+  }
+
+  const refundAmt = Number(params.refund_amount);
+  if (!Number.isFinite(refundAmt) || refundAmt < 0) {
+    throw new Error('İade tutarı geçerli bir pozitif sayı olmalıdır.');
+  }
+
   const db = loadDb();
   const now = new Date().toISOString();
   const targetStoreId = params.store_id || 1;
@@ -1109,7 +1143,7 @@ export function createRefund(params: CreateRefundParams): {
   }
 
   // Stoğu geri artır
-  product.stock_quantity += params.quantity;
+  product.stock_quantity += qty;
   product.updated_at = now;
 
   const refundCode = `REF-${Date.now().toString().slice(-6)}`;
@@ -1122,8 +1156,8 @@ export function createRefund(params: CreateRefundParams): {
     product_name: product.name,
     barcode: product.barcode,
     type: 'IADE',
-    quantity: params.quantity,
-    note: `İade (${params.payment_method}): ${params.quantity} ${product.unit} - ${params.reason || 'Müşteri İadesi'}`,
+    quantity: qty,
+    note: `İade (${params.payment_method}): ${qty} ${product.unit} - ${params.reason || 'Müşteri İadesi'}`,
     created_at: now,
   };
   db.stock_movements.push(movement);
@@ -1132,7 +1166,7 @@ export function createRefund(params: CreateRefundParams): {
   if (params.customer_id) {
     const customer = db.customers.find(c => c.id === params.customer_id && c.store_id === targetStoreId);
     if (customer) {
-      customer.balance = Math.max(0, customer.balance - params.refund_amount);
+      customer.balance = Math.max(0, customer.balance - refundAmt);
       customer.updated_at = now;
 
       db.customer_transactions.push({
@@ -1140,7 +1174,7 @@ export function createRefund(params: CreateRefundParams): {
         store_id: targetStoreId,
         customer_id: customer.id,
         type: 'TAHSILAT',
-        amount: params.refund_amount,
+        amount: refundAmt,
         sale_code: refundCode,
         note: `Ürün İadesi Mahsubu (${product.name})`,
         created_at: now,
@@ -1156,8 +1190,8 @@ export function createRefund(params: CreateRefundParams): {
       store_id: targetStoreId,
       title: `Ürün İadesi: ${product.name}`,
       category: 'DIGER',
-      amount: params.refund_amount,
-      note: `Kasa Nakit İadesi (${params.quantity} ${product.unit} - ${refundCode})`,
+      amount: refundAmt,
+      note: `Kasa Nakit İadesi (${qty} ${product.unit} - ${refundCode})`,
       created_at: now,
     };
     db.expenses.push(expense);

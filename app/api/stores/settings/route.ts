@@ -11,7 +11,15 @@ export async function GET(request: NextRequest) {
   if (!store) {
     return NextResponse.json({ error: 'Mağaza bulunamadı' }, { status: 404 });
   }
-  return NextResponse.json(store);
+
+  // Mask sensitive credentials so they are never leaked in client network responses
+  const { patron_pin, gib_password, integrator_api_secret, ...safeStore } = store;
+  return NextResponse.json({
+    ...safeStore,
+    has_patron_pin: Boolean(patron_pin),
+    gib_password_set: Boolean(gib_password),
+    integrator_secret_set: Boolean(integrator_api_secret),
+  });
 }
 
 export async function PATCH(request: NextRequest) {
@@ -24,7 +32,13 @@ export async function PATCH(request: NextRequest) {
     }
 
     const updatedStore = updateStoreSettings(Number(storeId), settings);
-    return NextResponse.json(updatedStore);
+    const { patron_pin, gib_password, integrator_api_secret, ...safeStore } = updatedStore;
+    return NextResponse.json({
+      ...safeStore,
+      has_patron_pin: Boolean(patron_pin),
+      gib_password_set: Boolean(gib_password),
+      integrator_secret_set: Boolean(integrator_api_secret),
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Ayarlar güncellenemedi';
     return NextResponse.json({ error: message }, { status: 400 });

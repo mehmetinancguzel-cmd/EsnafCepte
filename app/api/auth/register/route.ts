@@ -50,7 +50,6 @@ export async function POST(request: NextRequest) {
       requireVerification: true,
       email: result.user.email,
       maskedEmail: maskEmail(result.user.email),
-      devCode: code, // Convenient for instant testing
       message: 'Hesabınız başarıyla oluşturuldu! Lütfen e-postanıza gönderilen 6 haneli doğrulama kodunu giriniz.',
     });
   } catch (err: unknown) {
