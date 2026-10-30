@@ -70,5 +70,12 @@
 	<string>EsnafCepte, reyon ve kasa ürün barkodlarını hızlıca okumak ve sayım yapmak için kamera erişimi gerektirir.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>EsnafCepte, kablosuz termal fiş yazıcılarına bağlanmak için Bluetooth erişimi gerektirir.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>
