@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { JWT_SECRET } from './env';
 
 export interface TokenPayload {
   userId: number;
@@ -8,9 +9,6 @@ export interface TokenPayload {
   name: string;
   exp: number;
 }
-
-const DEFAULT_RUNTIME_SECRET = crypto.randomBytes(32).toString('hex');
-const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_RUNTIME_SECRET;
 
 /**
  * PBKDF2 Password Hashing with Salt

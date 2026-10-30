@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-
-const JWT_SECRET = process.env.JWT_SECRET || '2dsmzVs+JreYr1sZ52tqt/WqZTQdpx7vCvNijiyh6bLZy9M5MFdmBnDT+etnmfq3';
+import { JWT_SECRET } from './lib/env';
 
 // Public endpoints that do not require authentication
 const PUBLIC_PATHS = [

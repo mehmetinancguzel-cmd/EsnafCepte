@@ -107,11 +107,15 @@ export default function MobileAuthScreen({ onSuccess, onOpenLandingSite }: Mobil
         throw new Error(data.error || 'Kayıt işlemi başarısız.');
       }
 
-      setOtpPurpose('REGISTER_VERIFICATION');
-      setMaskedContact(data.maskedEmail || email);
-      setDevCode(data.devCode || null);
-      setStep('OTP');
-      setSuccessToast('Hesabınız oluşturuldu! Lütfen e-postanıza gönderilen doğrulama kodunu giriniz.');
+      if (data.requireVerification) {
+        setOtpPurpose('REGISTER_VERIFICATION');
+        setMaskedContact(data.maskedEmail || email);
+        setDevCode(data.devCode || null);
+        setStep('OTP');
+        setSuccessToast('Hesabınız oluşturuldu! Lütfen e-postanıza gönderilen doğrulama kodunu giriniz.');
+      } else {
+        onSuccess(data.user, data.store);
+      }
     } catch (err: any) {
       setError(err.message || 'Kayıt sırasında bir hata oluştu.');
     } finally {

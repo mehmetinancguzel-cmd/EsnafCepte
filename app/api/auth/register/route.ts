@@ -35,23 +35,61 @@ export async function POST(request: NextRequest) {
       seedTemplate: seedTemplate !== false,
     });
 
-    // Generate 6-Digit Email Verification Code (Expires in 15 mins)
-    const { code } = saveOtpCode(result.user.email, 'REGISTER_VERIFICATION', 'EMAIL', 15);
+    // E-posta / 2FA Doğrulama Kontrolü
+    const is2FaEnabled = process.env.ENABLE_2FA === 'true';
 
-    await sendOtpNotification({
-      channel: 'EMAIL',
-      recipient: result.user.email,
-      code,
-      purpose: 'REGISTER_VERIFICATION',
-    });
+    if (is2FaEnabled) {
+      // Generate 6-Digit Email Verification Code (Expires in 15 mins)
+      const { code } = saveOtpCode(result.user.email, 'REGISTER_VERIFICATION', 'EMAIL', 15);
 
-    return NextResponse.json({
-      success: true,
-      requireVerification: true,
+      await sendOtpNotification({
+        channel: 'EMAIL',
+        recipient: result.user.email,
+        code,
+        purpose: 'REGISTER_VERIFICATION',
+      });
+
+      return NextResponse.json({
+        success: true,
+        requireVerification: true,
+        email: result.user.email,
+        maskedEmail: maskEmail(result.user.email),
+        message: 'Hesabınız başarıyla oluşturuldu! Lütfen e-postanıza gönderilen 6 haneli doğrulama kodunu giriniz.',
+      });
+    }
+
+    // 2FA Pasif Mod: E-postayı otomatik onaylı yap, doğrudan oturum aç ve token oluştur
+    const { setUserEmailVerified } = await import('@/lib/db');
+    setUserEmailVerified(result.user.id);
+    result.user.email_verified = true;
+
+    const { generateSessionToken } = await import('@/lib/auth');
+    const token = generateSessionToken({
+      userId: result.user.id,
+      storeId: result.user.store_id,
+      role: 'PATRON',
       email: result.user.email,
-      maskedEmail: maskEmail(result.user.email),
-      message: 'Hesabınız başarıyla oluşturuldu! Lütfen e-postanıza gönderilen 6 haneli doğrulama kodunu giriniz.',
+      name: result.user.name,
     });
+
+    const response = NextResponse.json({
+      success: true,
+      requireVerification: false,
+      user: result.user,
+      store: result.store,
+      token,
+      message: 'Hesabınız başarıyla oluşturuldu! Dükkanınız hazır.',
+    });
+
+    response.cookies.set('esnafcepte_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 72 * 3600,
+    });
+
+    return response;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Kayıt sırasında bir hata oluştu.';
     return NextResponse.json({ error: message }, { status: 400 });
