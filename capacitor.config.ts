@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'EsnafCepte',
   webDir: 'public',
   server: {
-    url: 'http://192.168.1.105:3000',
+    url: 'http://192.168.1.105:3002',
     cleartext: true,
   },
   plugins: {
